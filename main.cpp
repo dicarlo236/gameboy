@@ -9,62 +9,56 @@
 #include "graphics_display.h"
 #include "video.h"
 
-KeyState keyboard, lastBoard;
-u32 newCycles = 0;
+// number of Z80 instructions / per keyboard update
+#define INSTR_PER_KEYCHECK 200
+
+// global keyboard
+KeyState keyboard;
+
+// convert a keyboard state to a unique integer.
+int keyboardToInt(KeyState* k) {
+  return k->a + 2*k->b + 4*k->u + 8*k->d + 16*k->l + 32*k->r + 64*k->start + 128*k->select;
+}
+
 int main(int argc, char** argv) {
   if(argc != 2) {
     return 0;
   }
+
+  // load game
   FileLoadData file = loadFile(argv[1]);
-  //FileLoadData file = loadFile("../ttt.gb");
-  //FileLoadData file = loadFile("../tetris.gb");
-  //FileLoadData file = loadFile("../cpu_instrs.gb");
-  //FileLoadData file = loadFile("../opus5.gb");
-  //FileLoadData file = loadFile("../test-01.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-02.gb"); // "EI Failed #2"
-  //FileLoadData file = loadFile("../test-03.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-04.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-05.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-06.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-07.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-08.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-09.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-10.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-11.gb"); // PASS!
+
+  // set up gameboy
   initMem(file);
   initVideo();
   resetCpu();
+
+  // set up graphics
   initGraphics(globalVideoState.frameBuffer);
   updateGraphics();
 
-  checkLogo(&file);
-  lastBoard = keyboard;
+  // set up keyboard
+  updateKeyboard(&keyboard);
+  int lastKeyboardInt = keyboardToInt(&keyboard);
+
+  // main loop
   for(;;) {
-
-    SDL_Event e;
-    SDL_PollEvent(&e);
+    // update keyboard
     updateKeyboard(&keyboard);
-    //printf("%d\n", keyboard.toInt());
-    if(lastBoard.toInt() != keyboard.toInt()) {
-      globalMemState.ioRegs[IO_IF] |= 0x10;
-      printf("change keyboard: ime %d, ie 0x%x, if 0x%x\n", globalState.ime, globalMemState.upperRam[0x7f], globalMemState.ioRegs[IO_IF]);
-    }
 
-    lastBoard = keyboard;
-    if(e.type == SDL_QUIT) {
-      exit(0);
-    }
+    // if the keyboard has changed, generate a key interrupt
+    int currentKeyboardInt = keyboardToInt(&keyboard);
+    if(lastKeyboardInt != currentKeyboardInt) {
+      globalMemState.ioRegs[IO_IF] |= INTERRUPT_KEY;
 
-    for(int i =  0; i < 100; i++) {
-      u32 startCycles = globalState.cycleCount;
-      cpuStep();
-      newCycles = globalState.cycleCount - startCycles;
-      if(!newCycles) {
-        printf("got 0 cycles!\n");
-        //printCpuState();
-        //assert(false);
-      }
-      stepVideo(newCycles);
+    }
+    lastKeyboardInt = currentKeyboardInt;
+
+
+    // step the CPU / Video systems as much as requested
+    for(int i =  0; i < INSTR_PER_KEYCHECK; i++) {
+      u32 cpuCycles = cpuStep();
+      stepVideo(cpuCycles);
     }
 
   }

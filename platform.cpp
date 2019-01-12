@@ -1,13 +1,12 @@
-//
-// Created by jared on 1/10/19.
-//
-
+// Linux specific code (excluding graphics, those are in graphics_display.cpp)
 #include "platform.h"
 
 #include <stdio.h>
 #include <cstdlib>
 #include <SDL2/SDL_system.h>
+#include <SDL2/SDL_events.h>
 
+// open a file
 FileLoadData loadFile(const char* name) {
   FILE* fp = fopen(name, "rb");
   FileLoadData loadData;
@@ -33,14 +32,13 @@ FileLoadData loadFile(const char* name) {
   return loadData;
 }
 
-void checkLogo(FileLoadData* loadData) {
-  u8 sum = 0x19;
-  for(u16 i = 0x134; i <= 0x14d; i++)
-    sum += loadData->data[i];
-  printf("got logo sum 0x%x\n", sum);
-}
-
+// update keyboard.  Also checks to see if it's time to quit.
 void updateKeyboard(KeyState* keys) {
+  SDL_Event e;
+  SDL_PollEvent(&e);
+  if(e.type == SDL_QUIT) {
+    exit(0);
+  }
   const u8* keyStats = SDL_GetKeyboardState(nullptr);
   keys->a = keyStats[SDL_SCANCODE_A];
   keys->b = keyStats[SDL_SCANCODE_B];

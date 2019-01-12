@@ -1,7 +1,3 @@
-//
-// Created by jared on 1/10/19.
-//
-
 #ifndef GBC_MEM_H
 #define GBC_MEM_H
 
@@ -9,17 +5,10 @@
 #include "stdio.h"
 #include "platform.h"
 
-// restart address registers for the RST opcode
-#define RESTART_0  0x0000
-#define RESTART_8  0x0008
-#define RESTART_10 0x0010
-#define RESTART_18 0x0018
-#define RESTART_20 0x0020
-#define RESTART_28 0x0028
-#define RESTART_30 0x0030
-#define RESTART_38 0x0038
+// interrupt flags
+#define INTERRUPT_KEY 0x10;
 
-
+// interrupt vector locations
 #define VBLANK_INTERRUPT    0x0040
 #define LCDC_INTERRUPT      0x0048
 #define TIMER_INTERRUPT     0x0050
@@ -36,7 +25,6 @@
 #define IO_TAC       0x07 // TIMER CONTROL (enable, speed) (nyi)
 #define IO_IF        0x0f
 
-// nyi
 #define IO_NR10      0x10
 #define IO_NR11      0x11
 #define IO_NR12      0x12
@@ -86,7 +74,6 @@
 
 #define CART_INFO_ADDR      0x0100
 
-#define CARTRIDGE_IS_COLOR = 0x80
 
 // cartridge types
 enum class CartType : u8 {
@@ -169,23 +156,19 @@ struct MemState {
   u8* mappedRam;
   u8* disabledMappedRam;
   u8* internalRam;
-  u8* internalRamAllocation;
+  u8* mappedRamAllocation;
   u8* ioRegs;
   u8* upperRam;
   u8* spriteAttribute;
 };
 
+// external interface
 extern MemState globalMemState;
-
-u32 lookupRomSize(RomSize size);
-u32 lookupRamSize(RamSize size);
-
-void initMem(FileLoadData file);
-
-u8 readByte(u16 addr);
-u16 readU16(u16 addr);
-void writeByte(u8 byte, u16 addr);
-void writeU16(u16 mem, u16 addr);
+void initMem(FileLoadData file); // intialize memory for a cartridge
+u8 readByte(u16 addr);           // read a byte from memory
+u16 readU16(u16 addr);           // read 16-bits from memory
+void writeByte(u8 byte, u16 addr); // write a byte to memory
+void writeU16(u16 mem, u16 addr); // read 16-bits from memory
 
 
 

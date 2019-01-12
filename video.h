@@ -1,7 +1,3 @@
-//
-// Created by jared on 1/11/19.
-//
-
 #ifndef GBC_VIDEO_H
 #define GBC_VIDEO_H
 
@@ -18,7 +14,6 @@ extern VideoState globalVideoState;
 
 void initVideo();
 void stepVideo(u32 cycles);
-void shutdownVideo();
 void renderLine();
 
 

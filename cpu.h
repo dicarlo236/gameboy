@@ -1,12 +1,9 @@
-//
-// Created by jared on 1/10/19.
-//
-
 #ifndef GBC_CPU_H
 #define GBC_CPU_H
 
 #include "types.h"
 
+// 16 bit register
 union reg {
   u16 v;
   struct {
@@ -16,33 +13,29 @@ union reg {
 };
 
 struct CpuState {
-  //reg af, bc, de, hl, sp, pc;
+  // registers
   reg bc, de, hl;
   u8 f;
   u8 a;
   u16 sp, pc;
-  bool stop, halt;
+
+  bool halt;
   uint64_t cycleCount;
   uint64_t divOffset;
   u8 ime;
   u32 timSubcount;
 };
 
+// external interface:
 extern CpuState globalState;
+void resetCpu(); // reinitialize the cpu
+u32 cpuStep();   // step 1 instruction, returns number of clock cycles elapsed
 
-void updateKeypadRegister(KeyState* keys);
-
-void resetCpu();
-
-void cpuStep();
-
-void printCpuState();
 
 bool getZeroFlag();
 bool getSubtractFlag();
 bool getHalfCarryFlag();
 bool getCarryFlag();
-
 void setZeroFlag();
 void clearZeroFlag();
 void setSubtractFlag();
@@ -51,7 +44,6 @@ void setHalfCarryFlag();
 void clearHalfCarryFlag();
 void setCarryFlag();
 void clearCarryFlag();
-
 void clearAllFlags();
 
 #endif //GBC_CPU_H

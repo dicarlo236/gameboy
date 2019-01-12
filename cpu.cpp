@@ -1,6 +1,4 @@
-//
-// Created by jared on 1/10/19.
-//
+// Implementation of OPCODES and cpu step function
 
 #include <stdexcept>
 #include <assert.h>
@@ -8,45 +6,20 @@
 #include "cpu.h"
 #include "mem.h"
 
+// cpu registers, halted state, and timers
 CpuState globalState;
 
 typedef void OpcodeHandler(u8 opcode);
 
-bool addHasHalfCarry(u8 a, u8 b) {
-  return (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10;
-}
-
-bool interactive = false;
-
-void printCpuState() {
-  printf("pc: 0x%04x\n"
-         "sp: 0x%04x\n"
-         "a:  0x%02x    f 0x%02x\n"
-         "b:  0x%02x    c 0x%02x     bc 0x%04x\n"
-         "d:  0x%02x    e 0x%02x     de 0x%04x\n"
-         "h:  0x%02x    l 0x%02x     fl 0x%04x\n",
-         globalState.pc, globalState.sp,
-         globalState.a, globalState.f,
-         globalState.bc.hi, globalState.bc.lo, globalState.bc.v,
-         globalState.de.hi, globalState.de.lo, globalState.de.v,
-         globalState.hl.hi, globalState.hl.lo, globalState.hl.v);
-  printf("Z? %d C? %d H? %d S? %d\n", getZeroFlag(), getCarryFlag(), getHalfCarryFlag(), getSubtractFlag());
-}
-
-void errorHandler(u8 opcode) {
-  printf("don't know how to handle 0x%x\n", opcode);
-  throw std::runtime_error("burp");
-}
-
+// the GB has several invalid opcodes
 void invHandler(u8 opcode) {
   printf("got invalid opcode 0x%x\n", opcode);
   assert(false);
 }
 
-void cbErrorHandler(u8 opcode) {
-  printf("don't know how to handle CB opcode 0x%x\n", opcode);
-  throw std::runtime_error("burp");
-}
+////////////////////////////////
+// CB Opcode Helper Functions //
+////////////////////////////////
 
 u8 rlcReg(u8 value, bool isA) {
   u8 result = value;
@@ -172,16 +145,10 @@ u8 swapRegister(u8 value) {
   return result;
 }
 
-void bit(u8 value, int bit) {
-  if(((value >> bit) & 1) == 0) {
-    setZeroFlag();
-  } else {
-    clearZeroFlag();
-  }
-  setHalfCarryFlag();
-  clearSubtractFlag();
 
-}
+////////////////////////////////
+// CB Opcodes                 //
+////////////////////////////////
 
 void SLA_A(u8 opcode) { // 0x27
   globalState.pc++;
@@ -834,7 +801,7 @@ void bit_DHL_test(u8 opcode) {
   globalState.cycleCount += 16;
 }
 
-
+// CB-prefixed opcode handler table
 static OpcodeHandler* opcode_cbs[256] =
         {RLC_B,          RLC_C,          RLC_D,          RLC_E,          RLC_H,          RLC_L,          RLC_DHL,        RLC_A,          // 0x0 - 0x7
          RRC_B,          RRC_C,          RRC_D,          RRC_E,          RRC_H,          RRC_L,          RRC_DHL,        RRC_A,          // 0x8 - 0xf
@@ -869,7 +836,10 @@ static OpcodeHandler* opcode_cbs[256] =
          bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xf0 - 0xf7
          bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     }; // 0xf8 - 0xff
 
-// 8-bit IMMEDIATE LOAD INTO REGISTERS (checked)
+
+////////////////////////////////
+// Opcodes                    //
+////////////////////////////////
 void LD_B_n(u8 opocde) { // 06
   u8 imm = readByte(++globalState.pc);
   globalState.pc++;
@@ -1474,14 +1444,6 @@ void LD_HL_SP_n(u8 opcode) { //0xf8
     setHalfCarryFlag();
   }
   globalState.hl.v = result;
-//  int newSp = globalState.sp + imm;
-//  if(((globalState.sp ^ imm ^ (newSp & 0xffff)) & 0x100) == 0x100) {
-//    setCarryFlag();
-//  }
-//  if(((globalState.sp ^ imm ^ (newSp & 0xffff)) & 0x10) == 0x10) {
-//    setHalfCarryFlag();
-//  }
-//  globalState.sp = (u16)newSp;
 }
 
 // store stack pointer
@@ -1562,9 +1524,6 @@ void addToA(u8 number) {
   globalState.a = (u8)result;
   clearAllFlags();
 
-  if(interactive) {
-    printf("addToA result 0x%x\n", result);
-  }
   if((u8)result == 0){
     setZeroFlag();
   }
@@ -1576,6 +1535,7 @@ void addToA(u8 number) {
     setHalfCarryFlag();
   }
 }
+
 // ADD Opcodes
 void ADD_A(u8 opcode) { // 0x87
   globalState.pc++;
@@ -2215,7 +2175,6 @@ void DEC_A(u8 opcode) { // 0x3d
 
 void DEC_B(u8 opcode) { // 0x05
   globalState.bc.hi = decrement(globalState.bc.hi);
-  //printf("dec_b result: 0x%x: hl 0x%x zeroFlag %d\n", globalState.bc.hi, globalState.hl.v, getZeroFlag());
   globalState.pc++;
   globalState.cycleCount += 4;
 }
@@ -2368,26 +2327,6 @@ void DAA(u8 opcode) { // 0x27
   globalState.pc++;
   globalState.cycleCount += 4;
   u8 a = globalState.a;
-//  if(!getSubtractFlag()) {
-//    if(getHalfCarryFlag() || ((a & 0xf) > 9))
-//      a += 6;
-//    if(getCarryFlag() || (a > 0x9f))
-//      a += 0x60;
-//  } else {
-//    if(getHalfCarryFlag())
-//      a = (a - 6) & 0xff;
-//    else
-//      a -= 0x60;
-//  }
-//  clearHalfCarryFlag();
-//  clearZeroFlag();
-//  if((a & 0x100) == 0x100)
-//    setCarryFlag();
-//
-//  a &= 0xff;
-//  if(a == 0) {
-//    setZeroFlag();
-//  }
 
   if(!getSubtractFlag()) {
     if(getCarryFlag() || a > 0x99) {
@@ -2446,18 +2385,13 @@ void NOP(u8 opcode) { // 00
   globalState.cycleCount += 4;
 }
 
-// todo HALT
-// todo STOP
-// todo DI
-// todo EI
 
 void HALT(u8 opcode) { // 76
   globalState.cycleCount += 4;
   globalState.pc++;
-  if(globalState.ime) {
+  //if(globalState.ime) {
     globalState.halt = true;
-    printf("halt\n");
-  }
+  //}
 
 }
 
@@ -2777,7 +2711,7 @@ void RETI(u8 opcode) { // 0xd9
   globalState.ime = 1;
 }
 
-
+// normal opcode handler table
 static OpcodeHandler* opcodes[256] =
         {NOP,          LD_BC_nn,     LD_DBC_A,     INC_BC,       INC_B,        DEC_B,        LD_B_n,       RLCA,         // 0x0 - 0x7
          LD_Dnn_SP,    ADD_HL_BC,    LD_A_DBC,     DEC_BC,       INC_C,        DEC_C,        LD_C_n,       RRCA,         // 0x8 - 0xf
@@ -2812,6 +2746,8 @@ static OpcodeHandler* opcodes[256] =
          LD_A_FF00_n,  POP_AF,       LD_A_FF00_C,  DI,           invHandler,   PUSH_AF,      OR_n,         REST_30,      // 0xf0 - 0xf7
          LD_HL_SP_n,   LD_SP_HL,     LD_A_Dnn,     EI,           invHandler,   invHandler,   CP_n,         REST_38};     // 0xf8 - 0xff
 
+
+// reset the globalState structure, including registers and timers
 void resetCpu() {
   globalState.f = 0x1; // or 0x11? (
   globalState.a = 0xb0; // maybe f, a swap??
@@ -2820,44 +2756,33 @@ void resetCpu() {
   globalState.hl.v = 0x014d;
   globalState.sp = 0xfffe;
   globalState.pc = 0x0;
-  globalState.stop = false;
   globalState.halt = false;
   globalState.cycleCount = 0;
   globalState.divOffset = 0;
   globalState.timSubcount = 0;
 }
 
+// set the globalState so the next call to step() will run an ISR
 void interrupt(u16 addr) {
-  globalState.ime = 0;
-  writeU16(globalState.pc, globalState.sp - (u16)2);
-  globalState.sp -= 2;
-  globalState.cycleCount += 12;
-  globalState.pc = addr;
+  globalState.ime = 0;                                // disable interrupts
+  writeU16(globalState.pc, globalState.sp - (u16)2);  // push pc to stack
+  globalState.sp -= 2;                                // push pc to stack
+  globalState.cycleCount += 12;                       // timing
+  globalState.pc = addr;                              // jump to ISR
 }
 
+// timer speeds: once this number of clock cycles has elapsed, the timer ticks.
 static u32 timReset[4] = {(1 << 10), (1 << 4), (1 << 6), (1 << 8)};
-void cpuStep() {
-  // update div register: (todo, do this lazily?) also check the math
+
+// step the CPU 1 instruction
+// returns number of clock cycles
+u32 cpuStep() {
+  uint64_t oldCycleCount = globalState.cycleCount;
+
+  // update div register
   globalMemState.ioRegs[IO_DIV] = (u8)((globalState.cycleCount - globalState.divOffset) >> 8);
 
-  // update timer
-  u8 tac = globalMemState.ioRegs[IO_TAC];
-  bool ten = (tac >> 2) & 1;
-  if(ten) {
-    u8 tclk = (tac & 3);
-    globalState.timSubcount += newCycles;
-    if(globalState.timSubcount >= timReset[tclk]) {
-      globalState.timSubcount = 0;
-      u8 timv = globalMemState.ioRegs[IO_TIMA];
-      if(timv == 255) {
-        globalMemState.ioRegs[IO_IF] |= 4;
-        globalMemState.ioRegs[IO_TIMA] = globalMemState.ioRegs[IO_TMA];
-      } else {
-        globalMemState.ioRegs[IO_TIMA] = timv + 1;
-      }
-    }
-  }
-
+  // execute, if we aren't halted.
   if(!globalState.halt) {
     // fetch opcode
     u8 opcode = readByte(globalState.pc);
@@ -2866,48 +2791,40 @@ void cpuStep() {
     opcodes[opcode](opcode);
   }
 
-
-
   // interrupts
-
   if(globalState.ime && globalMemState.upperRam[0x7f] && globalMemState.ioRegs[IO_IF]) {
-    // mask interrupts
+    // mask interrupts with the interrupt enable register at 0xffff.
     u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
-    //
+
     if(interrupts & 0x01) {
-      printf("INTERRUPT1\n");
-      printf("ie: 0x%x\n", globalMemState.upperRam[0x7f]);
-      printf("tac 0x%x tma 0x%x\n", globalMemState.ioRegs[IO_TAC], globalMemState.ioRegs[IO_TMA]);
       globalMemState.ioRegs[IO_IF] &= ~1;
       interrupt(VBLANK_INTERRUPT);
       globalState.halt = false;
     } else if(interrupts & 0x02) {
-      printf("INTERRUPT2\n");
       globalMemState.ioRegs[IO_IF] &= ~2;
       interrupt(LCDC_INTERRUPT);
       globalState.halt = false;
     } else if(interrupts & 0x04) {
-      printf("INTERRUPT3\n");
-      printf("tac 0x%x tma 0x%x\n", globalMemState.ioRegs[IO_TAC], globalMemState.ioRegs[IO_TMA]);
       globalMemState.ioRegs[IO_IF] &= ~4;
       interrupt(TIMER_INTERRUPT);
       globalState.halt = false;
     } else if(interrupts & 0x08) {
-      printf("INTERRUPT4\n");
       globalMemState.ioRegs[IO_IF] &= ~8;
       interrupt(SERIAL_INTERRUPT);
       globalState.halt = false;
     } else if(interrupts & 0x10) {
-      printf("INTERRUPT5\n");
       globalMemState.ioRegs[IO_IF] &= ~0x10;
       interrupt(HIGH_TO_LOW_P10_P13);
       globalState.halt = false;
     }
   }
 
-  // anti-halt stuff - this doesn't agree with the bad manual, but perhaps it is wrong
+  // even if we have IME off, and we're halted, we're supposed to check IF and IE register
+  // this won't fire an interrupt, but will get us out of halt
+  // this behavior isn't well documented, but was required to pass cpu_instr.gb
+  // (though none of the games seem to need it...)
   if(globalState.halt) {
-    globalState.cycleCount += 4; // i have no clue...
+    globalState.cycleCount += 4; // just to keep ticking the timer...
     u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
     if(interrupts & 0x01) {
       globalState.halt = false;
@@ -2922,7 +2839,31 @@ void cpuStep() {
     }
   }
 
-  //
+  // cycle count
+  uint64_t cyclesThisIteration = globalState.cycleCount - oldCycleCount;
+  if(cyclesThisIteration == 0) {
+    printf("0 cycles!\n");
+  }
+
+  // update timer
+  u8 tac = globalMemState.ioRegs[IO_TAC];
+  bool ten = ((tac >> 2) & 1) != 0; // timer enable?
+  if(ten) {
+    u8 tclk = (tac & (u8)3);     // timer speed
+    globalState.timSubcount += cyclesThisIteration;
+    if(globalState.timSubcount >= timReset[tclk]) { // timer tick
+      globalState.timSubcount = 0;
+      u8 timv = globalMemState.ioRegs[IO_TIMA]; // check for overflow
+      if(timv == 255) {
+        globalMemState.ioRegs[IO_IF] |= 4; // set interrupt
+        globalMemState.ioRegs[IO_TIMA] = globalMemState.ioRegs[IO_TMA]; // reset
+      } else {
+        globalMemState.ioRegs[IO_TIMA] = timv + (u8)1; // increment.
+      }
+    }
+  }
+
+  return (u32)cyclesThisIteration;
 }
 
 bool getZeroFlag() {
