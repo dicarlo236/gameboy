@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <cstdlib>
+#include <SDL2/SDL_system.h>
 
 FileLoadData loadFile(const char* name) {
   FILE* fp = fopen(name, "rb");
@@ -37,4 +38,16 @@ void checkLogo(FileLoadData* loadData) {
   for(u16 i = 0x134; i <= 0x14d; i++)
     sum += loadData->data[i];
   printf("got logo sum 0x%x\n", sum);
+}
+
+void updateKeyboard(KeyState* keys) {
+  const u8* keyStats = SDL_GetKeyboardState(nullptr);
+  keys->a = keyStats[SDL_SCANCODE_A];
+  keys->b = keyStats[SDL_SCANCODE_B];
+  keys->u = keyStats[SDL_SCANCODE_UP];
+  keys->d = keyStats[SDL_SCANCODE_DOWN];
+  keys->l = keyStats[SDL_SCANCODE_LEFT];
+  keys->r = keyStats[SDL_SCANCODE_RIGHT];
+  keys->start = keyStats[SDL_SCANCODE_P];
+  keys->select = keyStats[SDL_SCANCODE_L];
 }

@@ -71,12 +71,14 @@
 #define IO_LY        0x44
 #define IO_LYC       0x45
 
-#define IO_DMA       0x46
+#define IO_DMA       0x46//
 #define IO_BGP       0x47
 #define IO_OBP0      0x48
 #define IO_OBP1      0x49
 #define IO_WINY      0x4a
 #define IO_WINX      0x4b
+
+#define IO_EXIT_BIOS 0x50
 
 
 #define CART_INFO_ADDR      0x0100

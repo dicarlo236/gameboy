@@ -118,6 +118,49 @@ u8 rr(u8 value, bool isA) {
   return result;
 }
 
+u8 srl(u8 value) {
+  u8 result = value;
+  clearAllFlags();
+  if(result & 1) {
+    setCarryFlag();
+  }
+  result >>= 1;
+  if(result == 0) {
+    setZeroFlag();
+  }
+  return result;
+}
+
+u8 sla(u8 value) {
+  clearAllFlags();
+  if(value & 0x80) {
+    setCarryFlag();
+  }
+  u8 result = value << 1;
+  if(result == 0) {
+    setZeroFlag();
+  }
+  return result;
+}
+
+u8 sra(u8 value) {
+  u8 result = value;
+  clearAllFlags();
+  if(result & 1) {
+    setCarryFlag();
+  }
+  if((result & 0x80)) {
+    result >>= 1;
+    result |= 0x80;
+  } else {
+    result >>= 1;
+  }
+  if(result == 0) {
+    setZeroFlag();
+  }
+  return result;
+}
+
 u8 swapRegister(u8 value) {
   u8 low = value & 0xf;
   u8 hi = (value >> 4) & 0xf;
@@ -127,6 +170,301 @@ u8 swapRegister(u8 value) {
     setZeroFlag();
   }
   return result;
+}
+
+void bit(u8 value, int bit) {
+  if(((value >> bit) & 1) == 0) {
+    setZeroFlag();
+  } else {
+    clearZeroFlag();
+  }
+  setHalfCarryFlag();
+  clearSubtractFlag();
+
+}
+
+
+void BIT0_A(u8 opcode) { // 0x47
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.a, 0);
+}
+
+void BIT0_B(u8 opcode) { // 0x40
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.bc.hi, 0);
+}
+
+void BIT0_C(u8 opcode) { // 0x41
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.bc.lo, 0);
+}
+
+void BIT0_D(u8 opcode) { // 0x42
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.de.hi, 0);
+}
+
+void BIT0_E(u8 opcode) { // 0x43
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.de.lo, 0);
+}
+
+void BIT0_H(u8 opcode) { // 0x44
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.hl.hi, 0);
+}
+
+void BIT0_L(u8 opcode) { // 0x45
+  globalState.pc++; globalState.cycleCount += 8;
+  bit(globalState.hl.lo, 0);
+}
+
+void BIT0_DHL(u8 opcode) { // 0x46
+  globalState.pc++; globalState.cycleCount += 16;
+  bit(readByte(globalState.hl.v), 0);
+
+
+}
+
+void SLA_A(u8 opcode) { // 0x27
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = sla(globalState.a);
+}
+
+void SLA_B(u8 opcode) { // 0x20
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = sla(globalState.bc.hi);
+}
+
+void SLA_C(u8 opcode) { // 0x21
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = sla(globalState.bc.lo);
+}
+
+void SLA_D(u8 opcode) { // 0x22
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = sla(globalState.de.hi);
+}
+
+void SLA_E(u8 opcode) { // 0x23
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = sla(globalState.de.lo);
+}
+
+void SLA_H(u8 opcode) { // 0x24
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = sla(globalState.hl.hi);
+}
+
+void SLA_L(u8 opcode) { // 0x25
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = sla(globalState.hl.lo);
+}
+
+void SLA_DHL(u8 opcode) { // 0x26
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  writeByte(sla(readByte(globalState.hl.v)), globalState.hl.v);
+}
+
+void SRA_A(u8 opcode) { // 0x2f
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = sra(globalState.a);
+}
+
+void SRA_B(u8 opcode) { // 0x28
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = sra(globalState.bc.hi);
+}
+
+void SRA_C(u8 opcode) { // 0x29
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = sra(globalState.bc.lo);
+}
+
+void SRA_D(u8 opcode) { // 0x2a
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = sra(globalState.de.hi);
+}
+
+void SRA_E(u8 opcode) { // 0x2b
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = sra(globalState.de.lo);
+}
+
+void SRA_H(u8 opcode) { // 0x2c
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = sra(globalState.hl.hi);
+}
+
+void SRA_L(u8 opcode) { // 0x2d
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = sra(globalState.hl.lo);
+}
+
+void SRA_DHL(u8 opcode) { // 0x2e
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  writeByte(sra(readByte(globalState.hl.v)), globalState.hl.v);
+}
+
+
+void SRL_A(u8 opcode) { // 0x3f
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = srl(globalState.a);
+}
+
+void SRL_B(u8 opcode) { // 0x38
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = srl(globalState.bc.hi);
+}
+
+void SRL_C(u8 opcode) { // 0x39
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = srl(globalState.bc.lo);
+}
+
+void SRL_D(u8 opcode) { // 0x3a
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = srl(globalState.de.hi);
+}
+
+void SRL_E(u8 opcode) { // 0x3b
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = srl(globalState.de.lo);
+}
+
+void SRL_H(u8 opcode) { // 0x3c
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = srl(globalState.hl.hi);
+}
+
+void SRL_L(u8 opcode) { // 0x3d
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = srl(globalState.hl.lo);
+}
+
+void SRL_DHL(u8 opcode) { // 0x3e
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  writeByte(srl(readByte(globalState.hl.v)), globalState.hl.v);
+}
+
+void RR_A(u8 opcode) { // 0x1f
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = rr(globalState.a, false);
+}
+
+void RR_B(u8 opcode) { // 0x18
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = rr(globalState.bc.hi, false);
+}
+
+void RR_C(u8 opcode) { // 0x19
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = rr(globalState.bc.lo, false);
+}
+
+void RR_D(u8 opcode) { // 0x1a
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = rr(globalState.de.hi, false);
+}
+
+void RR_E(u8 opcode) { // 0x1b
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = rr(globalState.de.lo, false);
+}
+
+void RR_H(u8 opcode) { // 0x1c
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = rr(globalState.hl.hi, false);
+}
+
+void RR_L(u8 opcode) { // 0x1d
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = rr(globalState.hl.lo, false);
+}
+
+void RR_DHL(u8 opcode) { // 0x1e
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  writeByte(rr(readByte(globalState.hl.v), false), globalState.hl.v);
+}
+
+void RL_A(u8 opcode) { // 0x17
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = rlReg(globalState.a, false);
+}
+
+void RL_B(u8 opcode) { // 0x10
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = rlReg(globalState.bc.hi, false);
+}
+
+void RL_C(u8 opcode) { // 0x11
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = rlReg(globalState.bc.lo, false);
+}
+
+void RL_D(u8 opcode) { // 0x12
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = rlReg(globalState.de.hi, false);
+}
+
+void RL_E(u8 opcode) { // 0x13
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = rlReg(globalState.de.lo, false);
+}
+
+void RL_H(u8 opcode) { // 0x14
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = rlReg(globalState.hl.hi, false);
+}
+
+void RL_L(u8 opcode) { // 0x15
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = rlReg(globalState.hl.lo, false);
+}
+
+void RL_DHL(u8 opcode) { // 0x16
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  writeByte(rlReg(readByte(globalState.hl.v), false), globalState.hl.v);
 }
 
 void SWAP_A(u8 opcode) { // 37
@@ -177,38 +515,138 @@ void SWAP_DHL(u8 opcode) { // 36
   writeByte(swapRegister(readByte(globalState.hl.v)), globalState.hl.v);
 }
 
+void RLC_A(u8 opcode) { // 07
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = rlcReg(globalState.a, false);
+}
+
+void RLC_B(u8 opcode) { // 00
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = rlcReg(globalState.bc.hi, false);
+}
+
+void RLC_C(u8 opcode) { // 01
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = rlcReg(globalState.bc.lo, false);
+}
+
+void RLC_D(u8 opcode) { // 02
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = rlcReg(globalState.de.hi, false);
+}
+
+void RLC_E(u8 opcode) { // 03
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = rlcReg(globalState.de.lo, false);
+}
+
+void RLC_H(u8 opcode) { // 04
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = rlcReg(globalState.hl.hi, false);
+}
+
+void RLC_L(u8 opcode) { // 05
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = rlcReg(globalState.hl.lo, false);
+}
+
+void RLC_DHL(u8 opcode) { // 06
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  u8 result = rlcReg(readByte(globalState.hl.v), false);
+  writeByte(result, globalState.hl.v);
+}
+
+
+void RRC_A(u8 opcode) { // 0f
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.a = rrc(globalState.a, false);
+}
+
+void RRC_B(u8 opcode) { // 08
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.hi = rrc(globalState.bc.hi, false);
+}
+
+void RRC_C(u8 opcode) { // 09
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.bc.lo = rrc(globalState.bc.lo, false);
+}
+
+void RRC_D(u8 opcode) { // 0a
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.hi = rrc(globalState.de.hi, false);
+}
+
+void RRC_E(u8 opcode) { // 0b
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.de.lo = rrc(globalState.de.lo, false);
+}
+
+void RRC_H(u8 opcode) { // 0c
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.hi = rrc(globalState.hl.hi, false);
+}
+
+void RRC_L(u8 opcode) { // 0d
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.hl.lo = rrc(globalState.hl.lo, false);
+}
+
+void RRC_DHL(u8 opcode) { // 0e
+  globalState.pc++;
+  globalState.cycleCount += 16;
+  u8 result = rrc(readByte(globalState.hl.v), false);
+  writeByte(result, globalState.hl.v);
+}
+
 void bit_A_test(u8 opcode) {
   u8 bitID = (opcode - (u8)0x47) >> 3;
   assert(bitID < 8);
   //printf("check bit %d of A\n", bitID);
   u8 val = globalState.a;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
 }
 
 void bit_B_test(u8 opcode) {
   u8 bitID = (opcode - (u8)0x40) >> 3;
+  //printf("B opcode 0x%x bitId %d\n", opcode, bitID);
   assert(bitID < 8);
   //printf("check bit %d of B\n", bitID);
   u8 val = globalState.bc.hi;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
+
+
 }
 
 void bit_C_test(u8 opcode) {
@@ -216,14 +654,13 @@ void bit_C_test(u8 opcode) {
   assert(bitID < 8);
   //printf("check bit %d of C\n", bitID);
   u8 val = globalState.bc.lo;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
 }
@@ -233,14 +670,13 @@ void bit_D_test(u8 opcode) {
   assert(bitID < 8);
   //printf("check bit %d of D\n", bitID);
   u8 val = globalState.de.hi;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
 }
@@ -250,14 +686,13 @@ void bit_E_test(u8 opcode) {
   assert(bitID < 8);
   //printf("check bit %d of E\n", bitID);
   u8 val = globalState.de.lo;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
 }
@@ -267,14 +702,13 @@ void bit_H_test(u8 opcode) {
   assert(bitID < 8);
   //printf("check bit %d of H\n", bitID);
   u8 val = globalState.hl.hi;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
 }
@@ -284,42 +718,52 @@ void bit_L_test(u8 opcode) {
   assert(bitID < 8);
   //printf("check bit %d of L\n", bitID);
   u8 val = globalState.hl.lo;
-  u8 bit = (u8)((val >> bitID) == 1);
-  if(bit) {
-    clearZeroFlag();
-  } else {
+  if(((val >> bitID) & 1) == 0) {
     setZeroFlag();
+  } else {
+    clearZeroFlag();
   }
-  clearSubtractFlag();
   setHalfCarryFlag();
+  clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
 }
 
-void RL_C(u8 opcode) { // 11
-  globalState.pc++;
-  globalState.cycleCount += 8;
-  globalState.a = rlReg(globalState.bc.lo, false);
+void bit_DHL_test(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x45) >> 3;
+  assert(bitID < 8);
+  //printf("check bit %d of L\n", bitID);
+  u8 val = readByte(globalState.hl.v);
+  if(((val >> bitID) & 1) == 0) {
+    setZeroFlag();
+  } else {
+    clearZeroFlag();
+  }
+  setHalfCarryFlag();
+  clearSubtractFlag();
+  globalState.pc += 1;
+  globalState.cycleCount += 16;
 }
 
+
 static OpcodeHandler* opcode_cbs[256] =
-        {cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x0 - 0x7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x8 - 0xf
-         cbErrorHandler, RL_C,           cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x10 - 0x17
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x18 - 0x1f
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x20 - 0x27
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x28 - 0x2f
+        {RLC_B,          RLC_C,          RLC_D,          RLC_E,          RLC_H,          RLC_L,          RLC_DHL,        RLC_A,          // 0x0 - 0x7
+         RRC_B,          RRC_C,          RRC_D,          RRC_E,          RRC_H,          RRC_L,          RRC_DHL,        RRC_A,          // 0x8 - 0xf
+         RL_B,           RL_C,           RL_D,           RL_E,           RL_H,           RL_L,           RL_DHL,         RL_A,           // 0x10 - 0x17
+         RR_B,           RR_C,           RR_D,           RR_E,           RR_H,           RR_L,           RR_DHL,         RR_A,           // 0x18 - 0x1f
+         SLA_B,          SLA_C,          SLA_D,          SLA_E,          SLA_H,          SLA_L,          SLA_DHL,        SLA_A,          // 0x20 - 0x27
+         SRA_B,          SRA_C,          SRA_D,          SRA_E,          SRA_H,          SRA_L,          SRA_DHL,        SRA_A,          // 0x28 - 0x2f
          SWAP_B,         SWAP_C,         SWAP_D,         SWAP_E,         SWAP_H,         SWAP_L,         SWAP_DHL,       SWAP_A,         // 0x30 - 0x37
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x38 - 0x3f
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, bit_A_test,     // 0x40 - 0x47
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x48 - 0x4f
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x50 - 0x57
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x58 - 0x5f
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x60 - 0x67
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x68 - 0x6f
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x70 - 0x77
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, bit_A_test,     // 0x78 - 0x7f
-         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     cbErrorHandler, cbErrorHandler, // 0x80 - 0x8
+         SRL_B,          SRL_C,          SRL_D,          SRL_E,          SRL_H,          SRL_L,          SRL_DHL,        SRL_A,          // 0x38 - 0x3f
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x40 - 0x47
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x48 - 0x4f
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x50 - 0x57
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x58 - 0x5f
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x60 - 0x67
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x68 - 0x6f
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x70 - 0x77
+         bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x78 - 0x7f
+         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x80 - 0x8
          cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x88 - 0x8f
          cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x90 - 0x97
          cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x98 - 0x9f
@@ -933,21 +1377,29 @@ void LD_HL_SP_n(u8 opcode) { //0xf8
   s8 imm = readByte(globalState.pc);
   globalState.pc++;
   clearAllFlags();
-  int newSp = globalState.sp + imm;
-  if(((globalState.sp ^ imm ^ (newSp & 0xffff)) & 0x100) == 0x100) {
+  u16 result = globalState.sp + imm;
+  if(((globalState.sp ^ imm ^ result) & 0x100) == 0x100) {
     setCarryFlag();
   }
-  if(((globalState.sp ^ imm ^ (newSp & 0xffff)) & 0x10) == 0x10) {
+  if(((globalState.sp ^ imm ^ result) & 0x10) == 0x10) {
     setHalfCarryFlag();
   }
-  globalState.sp = (u16)newSp;
+  globalState.hl.v = result;
+//  int newSp = globalState.sp + imm;
+//  if(((globalState.sp ^ imm ^ (newSp & 0xffff)) & 0x100) == 0x100) {
+//    setCarryFlag();
+//  }
+//  if(((globalState.sp ^ imm ^ (newSp & 0xffff)) & 0x10) == 0x10) {
+//    setHalfCarryFlag();
+//  }
+//  globalState.sp = (u16)newSp;
 }
 
 // store stack pointer
 void LD_Dnn_SP(u8 opcode) { // 08
   globalState.pc++;
   u16 addr = readU16(globalState.pc);
-  globalState.pc++;
+  globalState.pc+=2;
   globalState.cycleCount += 20;
   writeU16(globalState.sp, addr);
 }
@@ -1826,23 +2278,45 @@ void DAA(u8 opcode) { // 0x27
   globalState.pc++;
   globalState.cycleCount += 4;
   int a = globalState.a;
-  if(!getSubtractFlag()) {
-    if(getHalfCarryFlag() || ((a & 0xf) > 9))
-      a += 6;
-    if(getCarryFlag() || (a > 0x9f))
-      a += 0x60;
-  } else {
-    if(getHalfCarryFlag())
-      a = (a - 6) & 0xff;
-    else
-      a -= 0x60;
-  }
-  clearHalfCarryFlag();
-  clearZeroFlag();
-  if((a & 0x100) == 0x100)
-    setCarryFlag();
+//  if(!getSubtractFlag()) {
+//    if(getHalfCarryFlag() || ((a & 0xf) > 9))
+//      a += 6;
+//    if(getCarryFlag() || (a > 0x9f))
+//      a += 0x60;
+//  } else {
+//    if(getHalfCarryFlag())
+//      a = (a - 6) & 0xff;
+//    else
+//      a -= 0x60;
+//  }
+//  clearHalfCarryFlag();
+//  clearZeroFlag();
+//  if((a & 0x100) == 0x100)
+//    setCarryFlag();
+//
+//  a &= 0xff;
+//  if(a == 0) {
+//    setZeroFlag();
+//  }
 
-  a &= 0xff;
+  if(!getSubtractFlag()) {
+    if(getCarryFlag() || a > 0x99) {
+      a += 0x60;
+      setCarryFlag();
+    }
+    if(getHalfCarryFlag() || (a & 0x0f) > 0x09) {
+      a += 0x6;
+    }
+  } else {
+    if(getCarryFlag()) {
+      a -= 0x60;
+    }
+    if(getHalfCarryFlag()) {
+      a -= 0x6;
+    }
+  }
+  clearZeroFlag();
+  clearHalfCarryFlag();
   if(a == 0) {
     setZeroFlag();
   }
@@ -1878,7 +2352,8 @@ void SCF(u8 opcode) { // 0x37
 }
 
 void NOP(u8 opcode) { // 00
-
+  globalState.pc++;
+  globalState.cycleCount += 4;
 }
 
 // todo HALT
@@ -1897,13 +2372,18 @@ void STOP(u8 opcode) { // 10 (00)
 }
 
 void DI(u8 opcode) { // F3
-  printf("di not yet implemented\n");
-  assert(false);
+  // todo instruction after bs
+  globalState.ime = 0;
+  globalState.cycleCount += 4;
+  globalState.pc++;
+//  printf("di not yet implemented\n");
+//  assert(false);
 }
 
 void EI(u8 opcode) { // FB
-  printf("ei not yet implemented\n");
-  assert(false);
+  globalState.ime = 1;
+  globalState.cycleCount += 4;
+  globalState.pc++;
 }
 
 void RLCA(u8 opcode) { // 07
@@ -2195,8 +2675,11 @@ void RET_C(u8 opcode) { // 0xd8
 }
 
 void RETI(u8 opcode) { // 0xd9
-  printf("reti nyi\n");
-  assert(false);
+  globalState.pc++;
+  globalState.cycleCount += 8;
+  globalState.pc = readU16(globalState.sp);
+  globalState.sp += 2;
+  globalState.ime = 1;
 }
 
 
@@ -2248,17 +2731,24 @@ void resetCpu() {
   globalState.divOffset = 0;
 }
 
-
+void interrupt(u16 addr) {
+  globalState.ime = 0;
+  writeU16(globalState.pc, globalState.sp - (u16)2);
+  globalState.sp -= 2;
+  globalState.cycleCount += 12;
+  globalState.pc = addr;
+}
 
 void cpuStep() {
   // update div register: (todo, do this lazily?) also check the math
   globalMemState.ioRegs[IO_DIV] = (u8)((globalState.cycleCount - globalState.divOffset) >> 8);
 
-  if(globalState.pc == 0xf1) {
-    interactive = true;
-  }
+//  if(globalState.pc == 0xf1) {
+//    interactive = true;
+//  }
   if(interactive)
     printf("pc 0x%x\n", globalState.pc);
+
   u8 opcode = readByte(globalState.pc);
   //printf("OPCODE @ 0x%x: 0x%x\n", globalState.pc, opcode);
   opcodes[opcode](opcode);
@@ -2267,6 +2757,17 @@ void cpuStep() {
     printCpuState();
     getchar();
     printf("\n\n\n");
+  }
+
+  if(globalState.ime && globalMemState.upperRam[0x7f] && globalMemState.ioRegs[IO_IF]) {
+    u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
+    if(interrupts & 0x01) {
+      printf("INTERRUPT1\n");
+      globalMemState.ioRegs[IO_IF] &= 0xFE;
+      interrupt(0x0040);
+    } else if(interrupts & 0x10) {
+      printf("keyboard interrupt!\n");
+    }
   }
 
 

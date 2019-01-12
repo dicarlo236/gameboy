@@ -29,6 +29,9 @@ void initMem(FileLoadData file) {
   globalMemState.inBios = true;
   globalMemState.rom0 = file.data;
   globalMemState.mappedRom = nullptr;
+  if(cartInfo->cartType == CartType::ROM_ONLY || cartInfo->cartType == CartType::ROM_MBC1) {
+    globalMemState.mappedRom = file.data + 0x4000;
+  }
   globalMemState.vram = nullptr;
   globalMemState.mappedRam = nullptr;
   globalMemState.internalRam = nullptr;
@@ -40,13 +43,13 @@ void initMem(FileLoadData file) {
   globalMemState.internalRam = (u8*)malloc(0x2000);
   globalMemState.vram = (u8*)malloc(0x2000);
   globalMemState.upperRam    = (u8*)malloc(0x80);
-  globalMemState.ioRegs      = (u8*)malloc(0x4c);
+  globalMemState.ioRegs      = (u8*)malloc(0x80);
 
   // clear RAMs
   memset(globalMemState.internalRam, 0, 0x2000);
   memset(globalMemState.vram, 0, 0x2000);
   memset(globalMemState.upperRam, 0, 0x80);
-  memset(globalMemState.ioRegs, 0, 0x4c);
+  memset(globalMemState.ioRegs, 0, 0x80);
 
   // setup i/o regs and friends
   u8* io = globalMemState.ioRegs;
@@ -140,12 +143,13 @@ u8 readByte(u16 addr) {
         if(addr < 0x100) {
           return bios[addr];
         } else if(addr == 0x100) {
-          printf("EXIT BIOS!\n");
-          globalMemState.inBios = false;
+          printf("EXIT BIOS ERROR\n");
+          assert(false);
         } else {
           return globalMemState.rom0[addr];
         }
       } else {
+        //printf("read 0x%x: 0x%x\n", addr, globalMemState.rom0[addr]);
         return globalMemState.rom0[addr];
       }
 
@@ -208,41 +212,75 @@ u8 readByte(u16 addr) {
               case IO_LY:
               case IO_SCROLLX:
               case IO_SCROLLY:
-              case IO_NR10:
-              case IO_NR11:
-              case IO_NR12:
-              case IO_NR13:
-              case IO_NR14:
-              case IO_NR21:
-              case IO_NR22:
-              case IO_NR23:
-              case IO_NR24:
-              case IO_NR30:
-              case IO_NR31:
-              case IO_NR32:
-              case IO_NR33:
-              case IO_NR34:
-              case IO_NR41:
-              case IO_NR42:
-              case IO_NR43:
-              case IO_NR44:
-              case IO_NR50:
-              case IO_NR51:
-              case IO_NR52:
-              case IO_WAVE_PATTERN:
-                return globalMemState.ioRegs[lowAddr];
-                break;
-              case IO_P1:
+              case IO_NR10: // nyi
+              case IO_NR11: // nyi
+              case IO_NR12: // nyi
+              case IO_NR13: // nyi
+              case IO_NR14: // nyi
+              case IO_NR21: // nyi
+              case IO_NR22: // nyi
+              case IO_NR23: // nyi
+              case IO_NR24: // nyi
+              case IO_NR30: // nyi
+              case IO_NR31: // nyi
+              case IO_NR32: // nyi
+              case IO_NR33: // nyi
+              case IO_NR34: // nyi
+              case IO_NR41: // nyi
+              case IO_NR42: // nyi
+              case IO_NR43: // nyi
+              case IO_NR44: // nyi
+              case IO_NR50: // nyi
+              case IO_NR51: // nyi
+              case IO_NR52: // nyi
+              case IO_STAT: // nyi
+              case IO_WAVE_PATTERN: // nyi
+              case IO_LCDC: // nyi
+              case IO_IF:
               case IO_SERIAL_SB:
               case IO_SERIAL_SC:
+                return globalMemState.ioRegs[lowAddr];
+                break;
+
+
+              case IO_P1:
+              {
+                u8 regP1 = globalMemState.ioRegs[IO_P1];
+                //printf("ireg: 0x%x\n", regP1);
+                u8 joypad_data = 0;
+                if(regP1 & 0x10) {
+                  if(keyboard.a) joypad_data += 0x1;
+                  if(keyboard.b) joypad_data += 0x2;
+                  if(keyboard.select) joypad_data += 0x4;
+                  if(keyboard.start) joypad_data += 0x8;
+                }
+                if(regP1 & 0x20) {
+                  if(keyboard.r) joypad_data += 0x1;
+                  if(keyboard.l) joypad_data += 0x2;
+                  if(keyboard.u) joypad_data += 0x4;
+                  if(keyboard.d) joypad_data += 0x8;
+                }
+
+                regP1 = (regP1 & 0xf0);
+                joypad_data = ~joypad_data;
+                joypad_data = regP1 + (joypad_data & 0xf);
+                //globalMemState.ioRegs[IO_P1] = joypad_data;
+                //printf("jpd: 0x%x\n", joypad_data);
+                return joypad_data;
+              }
+
+                break;
+
+
+
               case IO_DIV:
               case IO_TIMA:
               case IO_TMA:
               case IO_TAC:
-              case IO_IF:
 
-              case IO_LCDC:
-              case IO_STAT:
+
+
+
 
               case IO_LYC:
               case IO_DMA:
@@ -279,15 +317,15 @@ void writeByte(u8 byte, u16 addr) {
         printf("ERROR: tried to write into ROM0 or BIOS (@ 0x%04x) during BIOS!\n", addr);
         throw std::runtime_error("write");
       } else {
-        printf("ERROR: unhanled write into ROM0\n");
-        throw std::runtime_error("write");
+        printf("ERROR: unhanled write into ROM0: 0x%x 0x%x\n", addr, byte);
+        //throw std::runtime_error("write");
       }
       break;
     case 0x1000: // ROM 0
     case 0x2000: // ROM 0
     case 0x3000: // ROM 0
-      printf("ERROR: unhanled write into ROM0\n");
-      throw std::runtime_error("write");
+      printf("ERROR: unhanled write into ROM0: 0x%x 0x%x\n", addr, byte);
+      //throw std::runtime_error("write");
       break;
 
 
@@ -339,7 +377,7 @@ void writeByte(u8 byte, u16 addr) {
 
         case 0xe00:
           printf("ERROR unhandled write into sprite attributes!\n");
-          throw std::runtime_error("sprite write");
+          //throw std::runtime_error("sprite write");
           break;
 
         case 0xf00:
@@ -382,41 +420,66 @@ void writeByte(u8 byte, u16 addr) {
                 break;
 
               case IO_SCROLLX:
-                printf("SCROLLX 0x%x\n", byte);
+                //printf("SCROLLX 0x%x\n", byte);
                 break;
 
               case IO_SCROLLY:
-                printf("SCROLLY 0x%x\n", byte);
+                //printf("SCROLLY 0x%x\n", byte);
                 break;
 
               case IO_LCDC:
                 printf("LCDC: 0x%x\n", byte);
                 break;
 
+              case IO_EXIT_BIOS:
+                if(globalMemState.inBios) {
+                  printf("EXIT BIOS by write 0x%x to 0x%x", byte, addr);
+                  globalMemState.inBios = false;
+                  break;
+                } else {
+                  printf("tried to write to 0xff50 when not in bios?\n");
+                  assert(false);
+                  break;
+                }
+
+              case IO_STAT:
+                printf("STAT 0x%x\n", byte);
+                break;
+
+              case IO_OBP0:
+              case IO_OBP1:
+                printf("OBP01/2\n");
+                break;
+
               case IO_P1:
+              case IO_IF:
+              case IO_TAC:
               case IO_SERIAL_SB:
               case IO_SERIAL_SC:
+                break;
+
+
               case IO_DIV:
               case IO_TIMA:
               case IO_TMA:
-              case IO_TAC:
-              case IO_IF:
 
-              case IO_STAT:
+
+
+
 
               case IO_LY:
               case IO_LYC:
               case IO_DMA:
 
-              case IO_OBP0:
-              case IO_OBP1:
+
               case IO_WINY:
               case IO_WINX:
                 printf("unhandled I/O write @ 0x%x\n", addr);
-                assert(false);
+                //assert(false);
                 break;
               default:
                 printf("unknown I/O write @ 0x%x\n", addr);
+                //assert(false);
                 break;
             }
             break;

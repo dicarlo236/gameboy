@@ -19,6 +19,7 @@ extern VideoState globalVideoState;
 void initVideo();
 void stepVideo(u32 cycles);
 void shutdownVideo();
+void renderLine();
 
 
 #endif //GBC_VIDEO_H

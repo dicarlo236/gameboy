@@ -25,9 +25,12 @@ struct CpuState {
   uint64_t cycleCount;
   uint64_t divOffset;
   u16 div;
+  u8 ime;
 };
 
 extern CpuState globalState;
+
+void updateKeypadRegister(KeyState* keys);
 
 void resetCpu();
 
