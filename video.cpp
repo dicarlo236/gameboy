@@ -51,7 +51,8 @@ u8 readTile(u16 tileAddr, u8 x, u8 y) {
   u8 hi = readByte(hiAddr);
   u8 loV = (lo >> x) & (u8)1;
   u8 hiV = (hi >> x) & (u8)1;
-  u8 result = loV * 120 + hiV * 60;
+  //u8 result = loV * 120 + hiV * 60;
+  u8 result = loV * 128 + hiV * 64;
   return result;
 }
 
@@ -99,6 +100,61 @@ void renderLine() {
         tileMapColIdx = (tileMapColIdx + 1) & 31;
         tileIdx = readByte(tileMapRowAddr + tileMapColIdx);
         if(bgTileMap && tileIdx < 128) tileIdx += 256;
+      }
+    }
+  }
+
+  // sprite renderer
+
+  for(u16 spriteID = 0; spriteID < 40; spriteID++) {
+    u16 oamPtr = 0xfe00 + 4 * spriteID;
+    assert(oamPtr <= 0xfe9f);
+    u8 spriteY = readByte(oamPtr);
+    u8 spriteX = readByte(oamPtr + 1);
+    u8 patternIdx = readByte(oamPtr + 2);
+    u8 flags = readByte(oamPtr + 3);
+
+    bool pri   = (flags >> 7) & (u8)1;
+    bool yFlip = (flags >> 6) & (u8)1;
+    bool xFlip = (flags >> 5) & (u8)1;
+
+    if(spriteX | spriteY) {
+      u8 spriteStartY = spriteY - 16;
+      u8 spriteLastY = spriteStartY + 8; // todo 16 row sprites
+      // reject based on y
+      if(globalVideoState.line < spriteStartY || globalVideoState.line >= spriteLastY) {
+        continue;
+      }
+
+      u8 tileY = globalVideoState.line - spriteStartY;
+      if(yFlip) {
+        tileY = 7 - tileY;
+      }
+
+
+      assert(tileY < 8);
+
+      for(u8 tileX = 0; tileX < 8; tileX++) {
+
+        u8 xPos = spriteX - 8 + tileX;
+        if(xPos >= 160) continue;
+
+        u8 old = globalVideoState.frameBuffer[160 * globalVideoState.line + xPos];
+
+        u8 tileLookupX = tileX;
+        if(xFlip) {
+          tileLookupX = 7 - tileX;
+        }
+        u8 tileValue = readTile(0x8000 + patternIdx * 16, tileLookupX, tileY);
+
+        if(!tileValue) continue;
+        if(pri && (old == 0)) {
+          globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+        } else {
+          globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+        }
+
+
       }
 
     }

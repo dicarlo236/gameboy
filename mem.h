@@ -31,11 +31,12 @@
 #define IO_SERIAL_SB 0x01 // serial transfer data   (don't support)
 #define IO_SERIAL_SC 0x02 // serial control         (don't support)
 #define IO_DIV       0x04 // div
-#define IO_TIMA      0x05 // timer value
-#define IO_TMA       0x06 // timer reload
-#define IO_TAC       0x07 // TIMER CONTROL (enable, speed)
-#define IO_IF        0x0f // INTERRUPT FLAG ?? (not sure how this works)
+#define IO_TIMA      0x05 // timer value            (nyi)
+#define IO_TMA       0x06 // timer reload           (nyi)
+#define IO_TAC       0x07 // TIMER CONTROL (enable, speed) (nyi)
+#define IO_IF        0x0f
 
+// nyi
 #define IO_NR10      0x10
 #define IO_NR11      0x11
 #define IO_NR12      0x12
@@ -64,19 +65,19 @@
 
 #define IO_WAVE_PATTERN 0x30 // this is 16 bytes
 
-#define IO_LCDC      0x40
-#define IO_STAT      0x41
+#define IO_LCDC      0x40 // yes, revisit
+#define IO_STAT      0x41 // no
 #define IO_SCROLLY   0x42
 #define IO_SCROLLX   0x43
 #define IO_LY        0x44
-#define IO_LYC       0x45
+#define IO_LYC       0x45 // no
 
-#define IO_DMA       0x46//
-#define IO_BGP       0x47
-#define IO_OBP0      0x48
-#define IO_OBP1      0x49
-#define IO_WINY      0x4a
-#define IO_WINX      0x4b
+#define IO_DMA       0x46 // yes
+#define IO_BGP       0x47 // ??
+#define IO_OBP0      0x48 // ??
+#define IO_OBP1      0x49 // ??
+#define IO_WINY      0x4a // no
+#define IO_WINX      0x4b // no
 
 #define IO_EXIT_BIOS 0x50
 
@@ -157,6 +158,7 @@ struct CartInfo {
 
 struct MemState {
   bool inBios;
+  bool mbc1Mode;
   u8* rom0;
   u8* mappedRom;
   u8* vram;

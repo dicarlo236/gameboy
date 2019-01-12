@@ -614,6 +614,139 @@ void RRC_DHL(u8 opcode) { // 0e
   writeByte(result, globalState.hl.v);
 }
 
+
+void bit_B_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC0) >> 3;
+  assert(bitID < 8);
+  globalState.bc.hi |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_C_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC1) >> 3;
+  assert(bitID < 8);
+  globalState.bc.lo |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_D_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC2) >> 3;
+  assert(bitID < 8);
+  globalState.de.hi |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_E_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC3) >> 3;
+  assert(bitID < 8);
+  globalState.de.lo |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_H_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC4) >> 3;
+  assert(bitID < 8);
+  globalState.hl.hi |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_L_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC5) >> 3;
+  assert(bitID < 8);
+  globalState.hl.lo |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_DHL_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC6) >> 3;
+  assert(bitID < 8);
+  u8 value = readByte(globalState.hl.v);
+  value |= (1 << bitID);
+  writeByte(value, globalState.hl.v);
+  globalState.pc += 1;
+  globalState.cycleCount += 16;
+}
+
+void bit_A_set(u8 opcode) {
+  u8 bitID = (opcode - (u8)0xC7) >> 3;
+  assert(bitID < 8);
+  globalState.a |= (1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_B_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x80) >> 3;
+  assert(bitID < 8);
+  globalState.bc.hi &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_C_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x81) >> 3;
+  assert(bitID < 8);
+  globalState.bc.lo &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_D_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x82) >> 3;
+  assert(bitID < 8);
+  globalState.de.hi &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_E_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x83) >> 3;
+  assert(bitID < 8);
+  globalState.de.lo &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_H_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x84) >> 3;
+  assert(bitID < 8);
+  globalState.hl.hi &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_L_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x85) >> 3;
+  assert(bitID < 8);
+  globalState.hl.lo &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
+void bit_DHL_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x86) >> 3;
+  assert(bitID < 8);
+  u8 value = readByte(globalState.hl.v);
+  value &= ~(1 << bitID);
+  writeByte(value, globalState.hl.v);
+  globalState.pc += 1;
+  globalState.cycleCount += 16;
+}
+
+void bit_A_res(u8 opcode) {
+  u8 bitID = (opcode - (u8)0x87) >> 3;
+  assert(bitID < 8);
+  globalState.a &= ~(1 << bitID);
+  globalState.pc += 1;
+  globalState.cycleCount += 8;
+}
+
 void bit_A_test(u8 opcode) {
   u8 bitID = (opcode - (u8)0x47) >> 3;
   assert(bitID < 8);
@@ -645,9 +778,8 @@ void bit_B_test(u8 opcode) {
   clearSubtractFlag();
   globalState.pc += 1;
   globalState.cycleCount += 8;
-
-
 }
+
 
 void bit_C_test(u8 opcode) {
   u8 bitID = (opcode - (u8)0x41) >> 3;
@@ -763,22 +895,22 @@ static OpcodeHandler* opcode_cbs[256] =
          bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x68 - 0x6f
          bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x70 - 0x77
          bit_B_test,     bit_C_test,     bit_D_test,     bit_E_test,     bit_H_test,     bit_L_test,     bit_DHL_test,   bit_A_test,     // 0x78 - 0x7f
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x80 - 0x8
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x88 - 0x8f
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x90 - 0x97
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0x98 - 0x9f
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xa0 - 0xa7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xa8 - 0xaf
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xb0 - 0xb7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xb8 - 0xbf
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xc0 - 0xc7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xc8 - 0xcf
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xd0 - 0xd7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xd8 - 0xdf
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xe0 - 0xe7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xe8 - 0xef
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, // 0xf0 - 0xf7
-         cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler, cbErrorHandler}; // 0xf8 - 0xff
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0x80 - 0x8
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0x88 - 0x8f
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0x90 - 0x97
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0x98 - 0x9f
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0xa0 - 0xa7
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0xa8 - 0xaf
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0xb0 - 0xb7
+         bit_B_res,      bit_C_res,      bit_D_res,      bit_E_res,      bit_H_res,      bit_L_res,      bit_DHL_res,    bit_A_res,      // 0xb8 - 0xbf
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xc0 - 0xc7
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xc8 - 0xcf
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xd0 - 0xd7
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xd8 - 0xdf
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xe0 - 0xe7
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xe8 - 0xef
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     , // 0xf0 - 0xf7
+         bit_B_set,      bit_C_set,      bit_D_set,      bit_E_set,      bit_H_set,      bit_L_set,      bit_DHL_set,    bit_A_set     }; // 0xf8 - 0xff
 
 // 8-bit IMMEDIATE LOAD INTO REGISTERS (checked)
 void LD_B_n(u8 opocde) { // 06
@@ -2126,6 +2258,7 @@ void DEC_A(u8 opcode) { // 0x3d
 
 void DEC_B(u8 opcode) { // 0x05
   globalState.bc.hi = decrement(globalState.bc.hi);
+  //printf("dec_b result: 0x%x: hl 0x%x zeroFlag %d\n", globalState.bc.hi, globalState.hl.v, getZeroFlag());
   globalState.pc++;
   globalState.cycleCount += 4;
 }
@@ -2763,10 +2896,24 @@ void cpuStep() {
     u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
     if(interrupts & 0x01) {
       printf("INTERRUPT1\n");
-      globalMemState.ioRegs[IO_IF] &= 0xFE;
-      interrupt(0x0040);
+      globalMemState.ioRegs[IO_IF] &= ~1;
+      interrupt(VBLANK_INTERRUPT);
+    } else if(interrupts & 0x02) {
+      printf("INTERRUPT2\n");
+      globalMemState.ioRegs[IO_IF] &= ~2;
+      interrupt(LCDC_INTERRUPT);
+    } else if(interrupts & 0x04) {
+      printf("INTERRUPT3\n");
+      globalMemState.ioRegs[IO_IF] &= ~4;
+      interrupt(TIMER_INTERRUPT);
+    } else if(interrupts & 0x08) {
+      printf("INTERRUPT4\n");
+      globalMemState.ioRegs[IO_IF] &= ~8;
+      interrupt(SERIAL_INTERRUPT);
     } else if(interrupts & 0x10) {
-      printf("keyboard interrupt!\n");
+      printf("INTERRUPT5\n");
+      globalMemState.ioRegs[IO_IF] &= ~8;
+      interrupt(HIGH_TO_LOW_P10_P13);
     }
   }
 

@@ -9,6 +9,8 @@
 #include "mem.h"
 #include "platform.h"
 
+#define DANGER_MODE
+
 MemState globalMemState;
 
 void CartInfo::print() {
@@ -23,9 +25,11 @@ void CartInfo::print() {
          title, isColor, SGB, (u8)cartType, (u8)romSize, (u8)ramSize, notJapan);
 }
 
+static u8* fileData = nullptr;
 void initMem(FileLoadData file) {
   CartInfo* cartInfo = (CartInfo*)(file.data + CART_INFO_ADDR);
   cartInfo->print();
+  fileData = file.data;
   globalMemState.inBios = true;
   globalMemState.rom0 = file.data;
   globalMemState.mappedRom = nullptr;
@@ -36,7 +40,6 @@ void initMem(FileLoadData file) {
   globalMemState.mappedRam = nullptr;
   globalMemState.internalRam = nullptr;
   globalMemState.upperRam = nullptr;
-  globalMemState.spriteAttribute = nullptr;
 
   // allocate memories:
   // internal RAM
@@ -86,7 +89,9 @@ void initMem(FileLoadData file) {
 
   // turn off interrupts
   globalMemState.upperRam[0x7f] = 0;
+  globalMemState.mbc1Mode = 0;
 }
+
 
 void shutdownMem() {
   free(globalMemState.internalRam);
@@ -195,13 +200,9 @@ u8 readByte(u16 addr) {
         case 0xb00:
         case 0xc00:
         case 0xd00:
+        case 0xe00:
           return globalMemState.internalRam[addr & 0x1fff];
 
-        case 0xe00:
-          if(addr < 0xfea0)
-            return globalMemState.spriteAttribute[addr & 0xff];
-          else
-            return 0;
 
         case 0xf00:
           if(addr >= 0xff80) {
@@ -239,6 +240,7 @@ u8 readByte(u16 addr) {
               case IO_IF:
               case IO_SERIAL_SB:
               case IO_SERIAL_SC:
+              case IO_DIV:
                 return globalMemState.ioRegs[lowAddr];
                 break;
 
@@ -272,8 +274,9 @@ u8 readByte(u16 addr) {
                 break;
 
 
+              case 0x4d:
+                return 0xff;
 
-              case IO_DIV:
               case IO_TIMA:
               case IO_TMA:
               case IO_TAC:
@@ -290,22 +293,33 @@ u8 readByte(u16 addr) {
               case IO_WINY:
               case IO_WINX:
                 printf("unhandled I/O read @ 0x%x\n", addr);
+#ifndef DANGER_MODE
                 assert(false);
+#endif
                 break;
               default:
                 printf("unknown I/O read @ 0x%x\n", addr);
+#ifndef DANGER_MODE
+                assert(false);
+#endif
                 break;
             }
 
           }
         default:
+#ifndef DANGER_MODE
           assert(false);
+#endif
+          break;
 
       }
       break;
 
     default:
+#ifndef DANGER_MODE
       assert(false);
+#endif
+      break;
   }
 }
 
@@ -315,17 +329,43 @@ void writeByte(u8 byte, u16 addr) {
     case 0x0000: // ROM 0
       if(globalMemState.inBios) {
         printf("ERROR: tried to write into ROM0 or BIOS (@ 0x%04x) during BIOS!\n", addr);
+#ifndef DANGER_MODE
         throw std::runtime_error("write");
+#endif
       } else {
         printf("ERROR: unhanled write into ROM0: 0x%x 0x%x\n", addr, byte);
-        //throw std::runtime_error("write");
+#ifndef DANGER_MODE
+        throw std::runtime_error("write");
+#endif
       }
       break;
     case 0x1000: // ROM 0
     case 0x2000: // ROM 0
     case 0x3000: // ROM 0
+      if(addr == 0x2000 && byte) {
+        printf("RAM ENABLE %d\n", byte);
+        switch(byte) {
+          case 1:
+            globalMemState.mappedRom = fileData + 0x4000;
+            break;
+          case 2:
+            globalMemState.mappedRom = fileData + 0x8000;
+            break;
+          case 3:
+            globalMemState.mappedRom = fileData + 0xC000;
+            break;
+          default:
+#ifndef DANGER_MODE
+            assert(false);
+#endif
+            break;
+        }
+        break;
+      }
       printf("ERROR: unhanled write into ROM0: 0x%x 0x%x\n", addr, byte);
-      //throw std::runtime_error("write");
+#ifndef DANGER_MODE
+      throw std::runtime_error("write");
+#endif
       break;
 
 
@@ -333,8 +373,10 @@ void writeByte(u8 byte, u16 addr) {
     case 0x5000: // ROM 1
     case 0x6000: // ROM 1
     case 0x7000: // ROM 1
-      printf("ERROR: unhanled write into ROM1\n");
-      throw std::runtime_error("write");
+      printf("MBC1 Mode select by writing 0x%x into 0x%x\n", byte, addr);
+      globalMemState.mbc1Mode = (byte & 1) ? 1 : 0;
+      //printf("ERROR: unhanled write into ROM1\n");
+      //throw std::runtime_error("write");
       break;
 
     case 0x8000: // VRAM
@@ -344,6 +386,13 @@ void writeByte(u8 byte, u16 addr) {
 
     case 0xa000: // mapped RAM
     case 0xb000:
+      if(!globalMemState.mappedRam) {
+        printf("write to unmapped ram @ 0x%x value 0x%x\n", addr, byte);
+#ifndef DANGER_MODE
+        assert(false);
+#endif
+        break;
+      }
       globalMemState.mappedRam[addr & 0x1fff] = byte;
       break;
 
@@ -372,13 +421,10 @@ void writeByte(u8 byte, u16 addr) {
         case 0xb00:
         case 0xc00:
         case 0xd00:
+        case 0xe00:
           globalMemState.internalRam[addr & 0x1fff] = byte;
           break;
 
-        case 0xe00:
-          printf("ERROR unhandled write into sprite attributes!\n");
-          //throw std::runtime_error("sprite write");
-          break;
 
         case 0xf00:
           if(addr >= 0xff80) {
@@ -412,6 +458,22 @@ void writeByte(u8 byte, u16 addr) {
               case IO_NR51:
               case IO_NR52:
               case IO_WAVE_PATTERN:
+              case 0x31:
+              case 0x32:
+              case 0x33:
+              case 0x34:
+              case 0x35:
+              case 0x36:
+              case 0x37:
+              case 0x38:
+              case 0x39:
+              case 0x3a:
+              case 0x3b:
+              case 0x3c:
+              case 0x3d:
+              case 0x3e:
+              case 0x3f:
+
                 printf("sound write to 0x%x, 0x%x\n", addr, byte);
                 break;
 
@@ -438,7 +500,7 @@ void writeByte(u8 byte, u16 addr) {
                   break;
                 } else {
                   printf("tried to write to 0xff50 when not in bios?\n");
-                  assert(false);
+                  //assert(false);
                   break;
                 }
 
@@ -451,17 +513,36 @@ void writeByte(u8 byte, u16 addr) {
                 printf("OBP01/2\n");
                 break;
 
+
+
               case IO_P1:
               case IO_IF:
               case IO_TAC:
+              case IO_TIMA:
+              case IO_TMA:
               case IO_SERIAL_SB:
               case IO_SERIAL_SC:
+              case IO_WINY:
+              case IO_WINX:
+                break;
+
+              case IO_DMA:
+              {
+                u16 dmaAddr = ((u16)byte) << 8;
+                printf("dma from 0x%x\n", dmaAddr);
+                for(u16 i = 0; i < 160; i++) {
+                  writeByte(readByte(dmaAddr + i), (u16)0xfe00 + i);
+                }
+                break;
+              }
+
+              case 0x7f:
+                printf("OOPS\n");
                 break;
 
 
-              case IO_DIV:
-              case IO_TIMA:
-              case IO_TMA:
+
+
 
 
 
@@ -469,26 +550,33 @@ void writeByte(u8 byte, u16 addr) {
 
               case IO_LY:
               case IO_LYC:
-              case IO_DMA:
 
 
-              case IO_WINY:
-              case IO_WINX:
                 printf("unhandled I/O write @ 0x%x\n", addr);
-                //assert(false);
+#ifndef DANGER_MODE
+                assert(false);
+#endif
                 break;
               default:
                 printf("unknown I/O write @ 0x%x\n", addr);
-                //assert(false);
+#ifndef DANGER_MODE
+                assert(false);
+#endif
                 break;
             }
             break;
           }
         default:
+#ifndef DANGER_MODE
           assert(false);
+#endif
+          break;
       }
       break;
     default:
+#ifndef DANGER_MODE
       assert(false);
+#endif
+      break;
   }
 }
