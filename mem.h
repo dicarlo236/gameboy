@@ -169,7 +169,8 @@ u8 readByte(u16 addr);           // read a byte from memory
 u16 readU16(u16 addr);           // read 16-bits from memory
 void writeByte(u8 byte, u16 addr); // write a byte to memory
 void writeU16(u16 mem, u16 addr); // read 16-bits from memory
-
+void saveGame();
+void loadGame();
 
 
 #endif //GBC_MEM_H

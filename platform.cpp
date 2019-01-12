@@ -32,6 +32,13 @@ FileLoadData loadFile(const char* name) {
   return loadData;
 }
 
+void saveFile(const char* name, FileLoadData info) {
+  FILE* fp = fopen(name, "wb");
+  printf("save 0x%x bytes 0x%llx\n", info.size, info.data);
+  fwrite(info.data, info.size, 1, fp);
+  fclose(fp);
+}
+
 // update keyboard.  Also checks to see if it's time to quit.
 void updateKeyboard(KeyState* keys) {
   SDL_Event e;
@@ -46,6 +53,8 @@ void updateKeyboard(KeyState* keys) {
   keys->d = keyStats[SDL_SCANCODE_DOWN];
   keys->l = keyStats[SDL_SCANCODE_LEFT];
   keys->r = keyStats[SDL_SCANCODE_RIGHT];
+  keys->save = keyStats[SDL_SCANCODE_S];
+  keys->load = keyStats[SDL_SCANCODE_D];
   keys->start = keyStats[SDL_SCANCODE_P];
   keys->select = keyStats[SDL_SCANCODE_L];
   keys->turbo = keyStats[SDL_SCANCODE_SPACE];

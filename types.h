@@ -12,7 +12,7 @@ using s16 = int16_t;
 using s32 = int32_t;
 
 struct KeyState {
-  bool a,b,u,d,l,r,start,select,turbo;
+  bool a,b,u,d,l,r,start,select,turbo, save, load;
 };
 
 extern KeyState keyboard;

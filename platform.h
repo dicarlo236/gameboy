@@ -9,6 +9,7 @@ struct FileLoadData {
 };
 
 FileLoadData loadFile(const char* name);
+void saveFile(const char* name, FileLoadData info);
 void updateKeyboard(KeyState* keys);
 
 #endif //GBC_PLATFORM_H

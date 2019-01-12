@@ -5,7 +5,7 @@
 #include "mem.h"
 #include "platform.h"
 
-//#define DANGER_MODE
+#define DANGER_MODE
 
 MemState globalMemState;
 
@@ -25,6 +25,18 @@ void CartInfo::print() {
 static const u8 romSizeIDToNBanks[7] = {2,4,8,16,32,64,128};
 static const u8 ramSizeIDToNBanks[5] = {0,1,1,4,4};
 static u8* fileData = nullptr;
+
+void saveGame() {
+  FileLoadData fld;
+  fld.size = 0x2000 * globalMemState.nRamBanks;
+  fld.data = globalMemState.mappedRamAllocation;
+  saveFile("savegame.gam", fld);
+}
+
+void loadGame() {
+  FileLoadData fld = loadFile("savegame.gam");
+  memcpy(globalMemState.mappedRamAllocation, fld.data, 0x2000 * globalMemState.nRamBanks);
+}
 
 
 void initMem(FileLoadData file) {

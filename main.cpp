@@ -50,7 +50,14 @@ int main(int argc, char** argv) {
     int currentKeyboardInt = keyboardToInt(&keyboard);
     if(lastKeyboardInt != currentKeyboardInt) {
       globalMemState.ioRegs[IO_IF] |= INTERRUPT_KEY;
-
+      if(keyboard.save) {
+        printf("save game!\n");
+        saveGame();
+      }
+      if(keyboard.load){
+        printf("load game!\n");
+        loadGame();
+      }
     }
     lastKeyboardInt = currentKeyboardInt;
 
