@@ -24,8 +24,8 @@ struct CpuState {
   bool stop, halt;
   uint64_t cycleCount;
   uint64_t divOffset;
-  u16 div;
   u8 ime;
+  u32 timSubcount;
 };
 
 extern CpuState globalState;

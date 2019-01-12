@@ -9,7 +9,7 @@
 #include "mem.h"
 #include "platform.h"
 
-#define DANGER_MODE
+//#define DANGER_MODE
 
 MemState globalMemState;
 
@@ -30,10 +30,11 @@ void initMem(FileLoadData file) {
   CartInfo* cartInfo = (CartInfo*)(file.data + CART_INFO_ADDR);
   cartInfo->print();
   fileData = file.data;
+  printf("ROM size: 0x%x bytes\n", file.size);
   globalMemState.inBios = true;
   globalMemState.rom0 = file.data;
   globalMemState.mappedRom = nullptr;
-  if(cartInfo->cartType == CartType::ROM_ONLY || cartInfo->cartType == CartType::ROM_MBC1) {
+  if(cartInfo->cartType == CartType::ROM_ONLY || cartInfo->cartType == CartType::ROM_MBC1 || cartInfo->cartType == CartType::ROM_MBC1_RAM) {
     globalMemState.mappedRom = file.data + 0x4000;
   }
   globalMemState.vram = nullptr;
@@ -132,6 +133,10 @@ static u8 bios[256] = {0x31, 0xFE, 0xFF, // LD, SP, $fffe   0
                        0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x20, 0xFE, 0x23, 0x7D, 0xFE, 0x34, 0x20,
                        0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50};
 
+void mbcHandler(u16 addr, u8 value) {
+
+}
+
 u16 readU16(u16 addr) {
   return (u16)readByte(addr) + ((u16)(readByte(addr+(u16)1)) << 8);
 }
@@ -175,6 +180,12 @@ u8 readByte(u16 addr) {
 
     case 0xa000: // mapped RAM
     case 0xb000:
+      if(!globalMemState.mappedRam) {
+#ifndef DANGER_MODE
+        assert(false);
+#endif
+        return 0xff;
+      }
       return globalMemState.mappedRam[addr & 0x1fff];
 
     case 0xc000: // internal RAM
@@ -237,10 +248,19 @@ u8 readByte(u16 addr) {
               case IO_STAT: // nyi
               case IO_WAVE_PATTERN: // nyi
               case IO_LCDC: // nyi
-              case IO_IF:
+
               case IO_SERIAL_SB:
               case IO_SERIAL_SC:
               case IO_DIV:
+              case IO_TIMA:
+              case IO_TMA:
+              case IO_TAC:
+                return globalMemState.ioRegs[lowAddr];
+                break;
+
+              case IO_IF:
+                printf("read if: 0x%x\n", globalMemState.ioRegs[lowAddr]);
+                printf("timer value: 0x%x\n", globalMemState.ioRegs[IO_TIMA]);
                 return globalMemState.ioRegs[lowAddr];
                 break;
 
@@ -272,17 +292,6 @@ u8 readByte(u16 addr) {
               }
 
                 break;
-
-
-              case 0x4d:
-                return 0xff;
-
-              case IO_TIMA:
-              case IO_TMA:
-              case IO_TAC:
-
-
-
 
 
               case IO_LYC:
@@ -333,18 +342,17 @@ void writeByte(u8 byte, u16 addr) {
         throw std::runtime_error("write");
 #endif
       } else {
-        printf("ERROR: unhanled write into ROM0: 0x%x 0x%x\n", addr, byte);
-#ifndef DANGER_MODE
-        throw std::runtime_error("write");
-#endif
+        mbcHandler(addr, byte);
       }
       break;
     case 0x1000: // ROM 0
     case 0x2000: // ROM 0
     case 0x3000: // ROM 0
-      if(addr == 0x2000 && byte) {
+      if(true) {
         printf("RAM ENABLE %d\n", byte);
         switch(byte) {
+          case 0:
+            printf("CASE 0\n");
           case 1:
             globalMemState.mappedRom = fileData + 0x4000;
             break;
@@ -353,6 +361,30 @@ void writeByte(u8 byte, u16 addr) {
             break;
           case 3:
             globalMemState.mappedRom = fileData + 0xC000;
+          case 4:
+            globalMemState.mappedRom = fileData + 0x10000;
+          case 5:
+            globalMemState.mappedRom = fileData + 0x14000;
+          case 6:
+            globalMemState.mappedRom = fileData + 0x18000;
+          case 7:
+            globalMemState.mappedRom = fileData + 0x1c000;
+          case 8:
+            globalMemState.mappedRom = fileData + 0x20000;
+          case 9:
+            globalMemState.mappedRom = fileData + 0x24000;
+          case 0xa:
+            globalMemState.mappedRom = fileData + 0x28000;
+          case 0xb:
+            globalMemState.mappedRom = fileData + 0x2c000;
+          case 0xc:
+            globalMemState.mappedRom = fileData + 0x30000;
+          case 0xd:
+            globalMemState.mappedRom = fileData + 0x34000;
+          case 0xe:
+            globalMemState.mappedRom = fileData + 0x38000;
+          case 0xf:
+            globalMemState.mappedRom = fileData + 0x3f000;
             break;
           default:
 #ifndef DANGER_MODE

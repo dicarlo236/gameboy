@@ -69,12 +69,12 @@ void renderLine() {
 
   u16 windowMapAddr = (u16)(windowTileMap ? 0x9c00 : 0x9800);
   u16 bgTileMapAddr = (u16)(bgTileMap     ? 0x9c00 : 0x9800);
-  u16 tileDataAddr  = (u16)(tileData      ? 0x8000 : 0x8800);
+  u16 tileDataAddr  = (u16)(tileData      ? 0x8000 : 0x9000);
 
 
   //printf("RENDERLINE %03d (:en %d :bgWin %d)\n", globalVideoState.line, lcdOn, bgWinEnable);
 
-
+  //assert(!objSize);
 
   if(lcdOn && bgWinEnable) {
     // render background onto framebuffer
@@ -83,12 +83,11 @@ void renderLine() {
     u8  yPixOffset     = ((u8)globalVideoState.line + globalMemState.ioRegs[IO_SCROLLY]) & (u8)7;
     u8  xPixOffset     = globalMemState.ioRegs[IO_SCROLLX] & (u8)7;
     u8* linePtr        = globalVideoState.frameBuffer + 160 * globalVideoState.line;
-    u16 tileIdx        = readByte(tileMapRowAddr + tileMapColIdx); // todo is this really a u16?
+    s16 tileIdx        = readByte(tileMapRowAddr + tileMapColIdx); // todo is this really a u16?
     //printf("read tileIdx %d (%d)\n", tileIdx, bgTileMap);
-    assert(!bgTileMap);
+    if(!bgTileMap && tileIdx > 127) tileIdx -= 256;
     // stupid
-    if(bgTileMap && tileIdx < 128) tileIdx += 256;
-
+    //if(bgTileMap && tileIdx < 128) tileIdx += 256;
     for(u8 px = 0; px < 160; px++) {
       *linePtr = readTile(tileDataAddr + 16 * tileIdx, xPixOffset, yPixOffset);
 //      if(debug)
@@ -99,66 +98,65 @@ void renderLine() {
         xPixOffset = 0;
         tileMapColIdx = (tileMapColIdx + 1) & 31;
         tileIdx = readByte(tileMapRowAddr + tileMapColIdx);
-        if(bgTileMap && tileIdx < 128) tileIdx += 256;
+        if(!bgTileMap && tileIdx > 127) tileIdx -= 256;
+        //if(bgTileMap && tileIdx < 128) tileIdx += 256;
       }
     }
   }
 
   // sprite renderer
+  if(objEnable) {
+    for(u16 spriteID = 0; spriteID < 40; spriteID++) {
+      u16 oamPtr = 0xfe00 + 4 * spriteID;
+      assert(oamPtr <= 0xfe9f);
+      u8 spriteY = readByte(oamPtr);
+      u8 spriteX = readByte(oamPtr + 1);
+      u8 patternIdx = readByte(oamPtr + 2);
+      u8 flags = readByte(oamPtr + 3);
 
-  for(u16 spriteID = 0; spriteID < 40; spriteID++) {
-    u16 oamPtr = 0xfe00 + 4 * spriteID;
-    assert(oamPtr <= 0xfe9f);
-    u8 spriteY = readByte(oamPtr);
-    u8 spriteX = readByte(oamPtr + 1);
-    u8 patternIdx = readByte(oamPtr + 2);
-    u8 flags = readByte(oamPtr + 3);
+      bool pri   = (flags >> 7) & (u8)1;
+      bool yFlip = (flags >> 6) & (u8)1;
+      bool xFlip = (flags >> 5) & (u8)1;
 
-    bool pri   = (flags >> 7) & (u8)1;
-    bool yFlip = (flags >> 6) & (u8)1;
-    bool xFlip = (flags >> 5) & (u8)1;
-
-    if(spriteX | spriteY) {
-      u8 spriteStartY = spriteY - 16;
-      u8 spriteLastY = spriteStartY + 8; // todo 16 row sprites
-      // reject based on y
-      if(globalVideoState.line < spriteStartY || globalVideoState.line >= spriteLastY) {
-        continue;
-      }
-
-      u8 tileY = globalVideoState.line - spriteStartY;
-      if(yFlip) {
-        tileY = 7 - tileY;
-      }
-
-
-      assert(tileY < 8);
-
-      for(u8 tileX = 0; tileX < 8; tileX++) {
-
-        u8 xPos = spriteX - 8 + tileX;
-        if(xPos >= 160) continue;
-
-        u8 old = globalVideoState.frameBuffer[160 * globalVideoState.line + xPos];
-
-        u8 tileLookupX = tileX;
-        if(xFlip) {
-          tileLookupX = 7 - tileX;
-        }
-        u8 tileValue = readTile(0x8000 + patternIdx * 16, tileLookupX, tileY);
-
-        if(!tileValue) continue;
-        if(pri && (old == 0)) {
-          globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
-        } else {
-          globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+      if(spriteX | spriteY) {
+        u8 spriteStartY = spriteY - 16;
+        u8 spriteLastY = spriteStartY + 8; // todo 16 row sprites
+        // reject based on y
+        if(globalVideoState.line < spriteStartY || globalVideoState.line >= spriteLastY) {
+          continue;
         }
 
+        u8 tileY = globalVideoState.line - spriteStartY;
+        if(yFlip) {
+          tileY = 7 - tileY;
+        }
 
+        assert(tileY < 8);
+
+        for(u8 tileX = 0; tileX < 8; tileX++) {
+
+          u8 xPos = spriteX - 8 + tileX;
+          if(xPos >= 160) continue;
+
+          u8 old = globalVideoState.frameBuffer[160 * globalVideoState.line + xPos];
+
+          u8 tileLookupX = tileX;
+          if(xFlip) {
+            tileLookupX = 7 - tileX;
+          }
+          u8 tileValue = readTile(0x8000 + patternIdx * 16, tileLookupX, tileY);
+
+          if(!tileValue) continue;
+          if(pri && (old == 0)) {
+            globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+          } else {
+            globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+          }
+        }
       }
-
     }
   }
+
 }
 
 void stepVideo(u32 cycles) {
@@ -208,6 +206,15 @@ void stepVideo(u32 cycles) {
       assert(false);
   }
   globalMemState.ioRegs[IO_LY] = (u8)globalVideoState.line;
+  u8 stat = globalMemState.ioRegs[IO_STAT];
+  stat &= ~7;
+  stat += globalVideoState.mode;
+  if(globalMemState.ioRegs[IO_LYC] == globalMemState.ioRegs[IO_LY]) {
+    stat += 4;
+    if((stat >> 6) & 1) {
+      globalMemState.ioRegs[IO_IF] |= 2;
+    }
+  }
 }
 
 void shutdownVideo() {

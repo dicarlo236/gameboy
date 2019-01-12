@@ -25,5 +25,6 @@ struct KeyState {
 };
 
 extern KeyState keyboard;
+extern u32 newCycles;
 
 #endif //GBC_TYPES_H

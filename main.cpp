@@ -10,7 +10,7 @@
 #include "video.h"
 
 KeyState keyboard, lastBoard;
-
+u32 newCycles = 0;
 int main(int argc, char** argv) {
   if(argc != 2) {
     return 0;
@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
   //FileLoadData file = loadFile("../tetris.gb");
   //FileLoadData file = loadFile("../cpu_instrs.gb");
   //FileLoadData file = loadFile("../opus5.gb");
-  //FileLoadData file = loadFile("../test-01.gb"); // "DAA Failed #6"
+  //FileLoadData file = loadFile("../test-01.gb"); // PASS!
   //FileLoadData file = loadFile("../test-02.gb"); // "EI Failed #2"
   //FileLoadData file = loadFile("../test-03.gb"); // PASS!
   //FileLoadData file = loadFile("../test-04.gb"); // PASS!
@@ -29,8 +29,8 @@ int main(int argc, char** argv) {
   //FileLoadData file = loadFile("../test-07.gb"); // PASS!
   //FileLoadData file = loadFile("../test-08.gb"); // PASS!
   //FileLoadData file = loadFile("../test-09.gb"); // PASS!
-  //FileLoadData file = loadFile("../test-10.gb"); //nyi instructions for this one
-  //FileLoadData file = loadFile("../test-11.gb"); //nyi instructions for this one
+  //FileLoadData file = loadFile("../test-10.gb"); // PASS!
+  //FileLoadData file = loadFile("../test-11.gb"); // PASS!
   initMem(file);
   initVideo();
   resetCpu();
@@ -59,11 +59,11 @@ int main(int argc, char** argv) {
 
     u32 startCycles = globalState.cycleCount;
     cpuStep();
-    u32 newCycles = globalState.cycleCount - startCycles;
+    newCycles = globalState.cycleCount - startCycles;
     if(!newCycles) {
       printf("got 0 cycles!\n");
-      printCpuState();
-      assert(false);
+      //printCpuState();
+      //assert(false);
     }
     stepVideo(newCycles);
   }

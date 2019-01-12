@@ -183,49 +183,6 @@ void bit(u8 value, int bit) {
 
 }
 
-
-void BIT0_A(u8 opcode) { // 0x47
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.a, 0);
-}
-
-void BIT0_B(u8 opcode) { // 0x40
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.bc.hi, 0);
-}
-
-void BIT0_C(u8 opcode) { // 0x41
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.bc.lo, 0);
-}
-
-void BIT0_D(u8 opcode) { // 0x42
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.de.hi, 0);
-}
-
-void BIT0_E(u8 opcode) { // 0x43
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.de.lo, 0);
-}
-
-void BIT0_H(u8 opcode) { // 0x44
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.hl.hi, 0);
-}
-
-void BIT0_L(u8 opcode) { // 0x45
-  globalState.pc++; globalState.cycleCount += 8;
-  bit(globalState.hl.lo, 0);
-}
-
-void BIT0_DHL(u8 opcode) { // 0x46
-  globalState.pc++; globalState.cycleCount += 16;
-  bit(readByte(globalState.hl.v), 0);
-
-
-}
-
 void SLA_A(u8 opcode) { // 0x27
   globalState.pc++;
   globalState.cycleCount += 8;
@@ -2410,7 +2367,7 @@ void DEC_SP(u8 opcode) { // 3B
 void DAA(u8 opcode) { // 0x27
   globalState.pc++;
   globalState.cycleCount += 4;
-  int a = globalState.a;
+  u8 a = globalState.a;
 //  if(!getSubtractFlag()) {
 //    if(getHalfCarryFlag() || ((a & 0xf) > 9))
 //      a += 6;
@@ -2495,8 +2452,13 @@ void NOP(u8 opcode) { // 00
 // todo EI
 
 void HALT(u8 opcode) { // 76
-  printf("halt not yet implemented\n");
-  assert(false);
+  globalState.cycleCount += 4;
+  globalState.pc++;
+  if(globalState.ime) {
+    globalState.halt = true;
+    printf("halt\n");
+  }
+
 }
 
 void STOP(u8 opcode) { // 10 (00)
@@ -2862,6 +2824,7 @@ void resetCpu() {
   globalState.halt = false;
   globalState.cycleCount = 0;
   globalState.divOffset = 0;
+  globalState.timSubcount = 0;
 }
 
 void interrupt(u16 addr) {
@@ -2872,51 +2835,91 @@ void interrupt(u16 addr) {
   globalState.pc = addr;
 }
 
+static u32 timReset[4] = {(1 << 10), (1 << 4), (1 << 6), (1 << 8)};
 void cpuStep() {
   // update div register: (todo, do this lazily?) also check the math
   globalMemState.ioRegs[IO_DIV] = (u8)((globalState.cycleCount - globalState.divOffset) >> 8);
 
-//  if(globalState.pc == 0xf1) {
-//    interactive = true;
-//  }
-  if(interactive)
-    printf("pc 0x%x\n", globalState.pc);
-
-  u8 opcode = readByte(globalState.pc);
-  //printf("OPCODE @ 0x%x: 0x%x\n", globalState.pc, opcode);
-  opcodes[opcode](opcode);
-
-  if(interactive) {
-    printCpuState();
-    getchar();
-    printf("\n\n\n");
+  // update timer
+  u8 tac = globalMemState.ioRegs[IO_TAC];
+  bool ten = (tac >> 2) & 1;
+  if(ten) {
+    u8 tclk = (tac & 3);
+    globalState.timSubcount += newCycles;
+    if(globalState.timSubcount >= timReset[tclk]) {
+      globalState.timSubcount = 0;
+      u8 timv = globalMemState.ioRegs[IO_TIMA];
+      if(timv == 255) {
+        globalMemState.ioRegs[IO_IF] |= 4;
+        globalMemState.ioRegs[IO_TIMA] = globalMemState.ioRegs[IO_TMA];
+      } else {
+        globalMemState.ioRegs[IO_TIMA] = timv + 1;
+      }
+    }
   }
 
+  if(!globalState.halt) {
+    // fetch opcode
+    u8 opcode = readByte(globalState.pc);
+
+    // execute opcode
+    opcodes[opcode](opcode);
+  }
+
+
+
+  // interrupts
+
   if(globalState.ime && globalMemState.upperRam[0x7f] && globalMemState.ioRegs[IO_IF]) {
+    // mask interrupts
     u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
+    //
     if(interrupts & 0x01) {
       printf("INTERRUPT1\n");
+      printf("ie: 0x%x\n", globalMemState.upperRam[0x7f]);
       globalMemState.ioRegs[IO_IF] &= ~1;
       interrupt(VBLANK_INTERRUPT);
+      globalState.halt = false;
     } else if(interrupts & 0x02) {
       printf("INTERRUPT2\n");
       globalMemState.ioRegs[IO_IF] &= ~2;
       interrupt(LCDC_INTERRUPT);
+      globalState.halt = false;
     } else if(interrupts & 0x04) {
       printf("INTERRUPT3\n");
+      printf("tac 0x%x tma 0x%x\n", globalMemState.ioRegs[IO_TAC], globalMemState.ioRegs[IO_TMA]);
       globalMemState.ioRegs[IO_IF] &= ~4;
       interrupt(TIMER_INTERRUPT);
+      globalState.halt = false;
     } else if(interrupts & 0x08) {
       printf("INTERRUPT4\n");
       globalMemState.ioRegs[IO_IF] &= ~8;
       interrupt(SERIAL_INTERRUPT);
+      globalState.halt = false;
     } else if(interrupts & 0x10) {
       printf("INTERRUPT5\n");
-      globalMemState.ioRegs[IO_IF] &= ~8;
+      globalMemState.ioRegs[IO_IF] &= ~0x10;
       interrupt(HIGH_TO_LOW_P10_P13);
+      globalState.halt = false;
     }
   }
 
+  // anti-halt stuff - this doesn't agree with the bad manual, but perhaps it is wrong
+  if(globalState.halt) {
+    globalState.cycleCount += 4; // i have no clue...
+    u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
+    if(interrupts & 0x01) {
+      globalState.halt = false;
+    } else if(interrupts & 0x02) {
+      globalState.halt = false;
+    } else if(interrupts & 0x04) {
+      globalState.halt = false;
+    } else if(interrupts & 0x08) {
+      globalState.halt = false;
+    } else if(interrupts & 0x10) {
+      globalState.halt = false;
+    }
+  }
 
   //
 }
