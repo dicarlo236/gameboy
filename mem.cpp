@@ -9,7 +9,7 @@
 #include "mem.h"
 #include "platform.h"
 
-//#define DANGER_MODE
+#define DANGER_MODE
 
 MemState globalMemState;
 
@@ -25,6 +25,9 @@ void CartInfo::print() {
          title, isColor, SGB, (u8)cartType, (u8)romSize, (u8)ramSize, notJapan);
 }
 
+static u8 romSizeIDToNBanks[7] = {2,4,8,16,32,64,128};
+static u8 ramSizeIDToNBanks[5] = {0,1,1,4,4};
+
 static u8* fileData = nullptr;
 void initMem(FileLoadData file) {
   CartInfo* cartInfo = (CartInfo*)(file.data + CART_INFO_ADDR);
@@ -34,13 +37,86 @@ void initMem(FileLoadData file) {
   globalMemState.inBios = true;
   globalMemState.rom0 = file.data;
   globalMemState.mappedRom = nullptr;
-  if(cartInfo->cartType == CartType::ROM_ONLY || cartInfo->cartType == CartType::ROM_MBC1 || cartInfo->cartType == CartType::ROM_MBC1_RAM) {
-    globalMemState.mappedRom = file.data + 0x4000;
-  }
+  globalMemState.nRamBanks = 0;
+  globalMemState.nRomBanks = 0;
   globalMemState.vram = nullptr;
   globalMemState.mappedRam = nullptr;
+  globalMemState.disabledMappedRam = nullptr;
+  globalMemState.internalRamAllocation = nullptr;
   globalMemState.internalRam = nullptr;
   globalMemState.upperRam = nullptr;
+
+  switch(cartInfo->cartType) {
+    case CartType::ROM_ONLY:
+      globalMemState.mappedRom = file.data + 0x4000;
+      globalMemState.mbcType = 0;
+      globalMemState.nRomBanks = 0;
+      break;
+
+    case CartType::ROM_MBC1:
+      globalMemState.mappedRom = file.data + 0x4000;
+      globalMemState.mbcType = 1;
+      if((u8)cartInfo->romSize < 7) {
+        globalMemState.nRomBanks = romSizeIDToNBanks[(u8)cartInfo->romSize];
+      } else {
+        printf("unknown number of rom banks\n");
+        assert(false);
+      }
+      break;
+
+    case CartType::ROM_MBC1_RAM:
+      globalMemState.mappedRom = file.data + 0x4000;
+      globalMemState.mbcType = 1;
+      if((u8)cartInfo->romSize < 7) {
+        globalMemState.nRomBanks = romSizeIDToNBanks[(u8)cartInfo->romSize];
+      } else {
+        printf("unknown number of rom banks\n");
+        assert(false);
+      }
+
+      if((u8)cartInfo->ramSize < 5) {
+        globalMemState.nRamBanks = ramSizeIDToNBanks[(u8)cartInfo->ramSize];
+      } else {
+        printf("unknown number of ram banks\n");
+      }
+      break;
+
+    case CartType::ROM_MBC3_RAM_BATT:
+    case CartType::ROM_MBC3_TIMER_RAM_BATT:
+      globalMemState.mappedRom = file.data + 0x4000;
+      globalMemState.mbcType = 3;
+      if((u8)cartInfo->romSize < 7) {
+        globalMemState.nRomBanks = romSizeIDToNBanks[(u8)cartInfo->romSize];
+      } else {
+        printf("unknown number of rom banks\n");
+        assert(false);
+      }
+
+      if((u8)cartInfo->ramSize < 5) {
+        globalMemState.nRamBanks = ramSizeIDToNBanks[(u8)cartInfo->ramSize];
+      } else {
+        printf("unknown number of ram banks\n");
+      }
+      break;
+    default:
+      printf("unknown cart type 0x%x\n", (u8)cartInfo->cartType);
+      assert(false);
+      break;
+  }
+
+  printf("mbc%d\n", globalMemState.mbcType);
+  printf("rom-banks: %d\n", globalMemState.nRomBanks);
+  printf("ram-banks: %d\n", globalMemState.nRamBanks);
+
+  if(globalMemState.nRamBanks) {
+    globalMemState.internalRamAllocation = (u8*)malloc(0x2000 * globalMemState.nRamBanks);
+    memset((void*)globalMemState.internalRamAllocation, 0, 0x2000 * globalMemState.nRamBanks);
+    globalMemState.disabledMappedRam = globalMemState.internalRamAllocation;
+  } else {
+
+  }
+
+
 
   // allocate memories:
   // internal RAM
@@ -90,7 +166,6 @@ void initMem(FileLoadData file) {
 
   // turn off interrupts
   globalMemState.upperRam[0x7f] = 0;
-  globalMemState.mbc1Mode = 0;
 }
 
 
@@ -133,8 +208,114 @@ static u8 bios[256] = {0x31, 0xFE, 0xFF, // LD, SP, $fffe   0
                        0x21, 0x04, 0x01, 0x11, 0xA8, 0x00, 0x1A, 0x13, 0xBE, 0x20, 0xFE, 0x23, 0x7D, 0xFE, 0x34, 0x20,
                        0xF5, 0x06, 0x19, 0x78, 0x86, 0x23, 0x05, 0x20, 0xFB, 0x86, 0x20, 0xFE, 0x3E, 0x01, 0xE0, 0x50};
 
-void mbcHandler(u16 addr, u8 value) {
+void mbc0Handler(u16 addr, u8 value) {
+  printf("[MBC0 Handler] 0x%x, 0x%x\n", addr, value);
 
+  // it looks like tetris tries to select ROM 1 for banked ROM, so we need to allow this:
+  if(addr >= 0x2000 && addr < 0x3fff) {
+    if(value == 0 || value == 1) {
+      printf("\tdo nothing\n");
+    } else {
+      assert(false);
+    }
+  } else {
+    assert(false);
+  }
+
+}
+
+void mbc1Handler(u16 addr, u8 value) {
+  printf("[MBC1 Handler] 0x%x, 0x%x\n", addr, value);
+  if(addr >= 0x2000 && addr < 0x3fff) {
+    if(value >= globalMemState.nRomBanks) {
+      printf("\trequested rom bank %d when there are only %d banks!\n", value, globalMemState.nRomBanks);
+      assert(false);
+    }
+
+    if(value == 0) value = 1;
+    if(value == 0x21) value = 0x20;
+    if(value == 0x41) value = 0x40;
+    printf("\tset mapped ROM to bank %d\n", value);
+    globalMemState.mappedRom = fileData + 0x4000 * value;
+  } else if(addr >= 0 && addr < 0x1fff) {
+    if(value == 0) {
+      printf("\tdisable internal ram\n");
+      globalMemState.disabledMappedRam = globalMemState.mappedRam;
+      globalMemState.mappedRam = nullptr;
+    } else if(value == 0xa) {
+      printf("\tenable internal ram\n");
+      globalMemState.mappedRam = globalMemState.disabledMappedRam;
+    } else {
+      assert(false);
+    }
+  } else {
+    assert(false);
+  }
+
+}
+
+void mbc2Handler(u16 addr, u8 value) {
+  printf("[MBC Handler] 0x%x, 0x%x\n", addr, value);
+  assert(false);
+}
+
+void mbc3Handler(u16 addr, u8 value) {
+
+  if(addr >= 0x2000 && addr < 0x3fff) {
+    if(value >= globalMemState.nRomBanks) {
+      printf("\trequested rom bank %d when there are only %d banks!\n", value, globalMemState.nRomBanks);
+      assert(false);
+    }
+
+    if(value == 0) value = 1;
+    //printf("\tset mapped ROM to bank %d\n", value);
+    globalMemState.mappedRom = fileData + 0x4000 * value;
+  } else if(addr >= 0 && addr < 0x1fff) {
+    printf("[MBC Handler] 0x%x, 0x%x\n", addr, value);
+    if(value == 0) {
+      printf("\tdisable internal ram\n");
+      globalMemState.disabledMappedRam = globalMemState.mappedRam;
+      globalMemState.mappedRam = nullptr;
+    } else if(value == 0xa) {
+      printf("\tenable internal ram\n");
+      globalMemState.mappedRam = globalMemState.disabledMappedRam;
+    } else {
+      //assert(false);
+    }
+  } else if(addr >= 0x4000 && addr < 0x5fff) {
+    printf("[MBC Handler] 0x%x, 0x%x\n", addr, value);
+    if(value < globalMemState.nRamBanks) {
+      printf("\tselect ram bank %d\n", value);
+      globalMemState.mappedRam = globalMemState.internalRamAllocation + 0x2000 * value;
+    } else {
+      //assert(false);
+    }
+  } else if(addr == 0x6000) {
+    printf("[MBC Handler] 0x%x, 0x%x\n", addr, value);
+    //getchar();
+  } else {
+    assert(false);
+  }
+}
+
+void mbcHandler(u16 addr, u8 value) {
+  switch(globalMemState.mbcType) {
+    case 0:
+      mbc0Handler(addr, value);
+      break;
+    case 1:
+      mbc1Handler(addr, value);
+      break;
+    case 2:
+      mbc2Handler(addr, value);
+      break;
+    case 3:
+      mbc3Handler(addr, value);
+      break;
+    default:
+      assert(false);
+      break;
+  }
 }
 
 u16 readU16(u16 addr) {
@@ -248,13 +429,17 @@ u8 readByte(u16 addr) {
               case IO_STAT: // nyi
               case IO_WAVE_PATTERN: // nyi
               case IO_LCDC: // nyi
-
+              case IO_BGP:
+              case IO_OBP0:
+              case IO_OBP1:
               case IO_SERIAL_SB:
               case IO_SERIAL_SC:
               case IO_DIV:
               case IO_TIMA:
               case IO_TMA:
               case IO_TAC:
+              case IO_WINY:
+              case IO_WINX:
                 return globalMemState.ioRegs[lowAddr];
                 break;
 
@@ -293,14 +478,12 @@ u8 readByte(u16 addr) {
 
                 break;
 
+              case IO_GBCSPEED:
+                return 0xff;
 
               case IO_LYC:
               case IO_DMA:
-              case IO_BGP:
-              case IO_OBP0:
-              case IO_OBP1:
-              case IO_WINY:
-              case IO_WINX:
+
                 printf("unhandled I/O read @ 0x%x\n", addr);
 #ifndef DANGER_MODE
                 assert(false);
@@ -335,7 +518,7 @@ u8 readByte(u16 addr) {
 
 void writeByte(u8 byte, u16 addr) {
   switch(addr & 0xf000) {
-    case 0x0000: // ROM 0
+    case 0x0000: // ROM 0, but possibly the BIOS area
       if(globalMemState.inBios) {
         printf("ERROR: tried to write into ROM0 or BIOS (@ 0x%04x) during BIOS!\n", addr);
 #ifndef DANGER_MODE
@@ -345,70 +528,16 @@ void writeByte(u8 byte, u16 addr) {
         mbcHandler(addr, byte);
       }
       break;
+
+
     case 0x1000: // ROM 0
     case 0x2000: // ROM 0
     case 0x3000: // ROM 0
-      if(true) {
-        printf("RAM ENABLE %d\n", byte);
-        switch(byte) {
-          case 0:
-            printf("CASE 0\n");
-          case 1:
-            globalMemState.mappedRom = fileData + 0x4000;
-            break;
-          case 2:
-            globalMemState.mappedRom = fileData + 0x8000;
-            break;
-          case 3:
-            globalMemState.mappedRom = fileData + 0xC000;
-          case 4:
-            globalMemState.mappedRom = fileData + 0x10000;
-          case 5:
-            globalMemState.mappedRom = fileData + 0x14000;
-          case 6:
-            globalMemState.mappedRom = fileData + 0x18000;
-          case 7:
-            globalMemState.mappedRom = fileData + 0x1c000;
-          case 8:
-            globalMemState.mappedRom = fileData + 0x20000;
-          case 9:
-            globalMemState.mappedRom = fileData + 0x24000;
-          case 0xa:
-            globalMemState.mappedRom = fileData + 0x28000;
-          case 0xb:
-            globalMemState.mappedRom = fileData + 0x2c000;
-          case 0xc:
-            globalMemState.mappedRom = fileData + 0x30000;
-          case 0xd:
-            globalMemState.mappedRom = fileData + 0x34000;
-          case 0xe:
-            globalMemState.mappedRom = fileData + 0x38000;
-          case 0xf:
-            globalMemState.mappedRom = fileData + 0x3f000;
-            break;
-          default:
-#ifndef DANGER_MODE
-            assert(false);
-#endif
-            break;
-        }
-        break;
-      }
-      printf("ERROR: unhanled write into ROM0: 0x%x 0x%x\n", addr, byte);
-#ifndef DANGER_MODE
-      throw std::runtime_error("write");
-#endif
-      break;
-
-
     case 0x4000: // ROM 1
     case 0x5000: // ROM 1
     case 0x6000: // ROM 1
     case 0x7000: // ROM 1
-      printf("MBC1 Mode select by writing 0x%x into 0x%x\n", byte, addr);
-      globalMemState.mbc1Mode = (byte & 1) ? 1 : 0;
-      //printf("ERROR: unhanled write into ROM1\n");
-      //throw std::runtime_error("write");
+      mbcHandler(addr, byte);
       break;
 
     case 0x8000: // VRAM
@@ -420,9 +549,9 @@ void writeByte(u8 byte, u16 addr) {
     case 0xb000:
       if(!globalMemState.mappedRam) {
         printf("write to unmapped ram @ 0x%x value 0x%x\n", addr, byte);
-#ifndef DANGER_MODE
-        assert(false);
-#endif
+//#ifndef DANGER_MODE
+//        assert(false);
+//#endif
         break;
       }
       globalMemState.mappedRam[addr & 0x1fff] = byte;
@@ -506,7 +635,7 @@ void writeByte(u8 byte, u16 addr) {
               case 0x3e:
               case 0x3f:
 
-                printf("sound write to 0x%x, 0x%x\n", addr, byte);
+                //printf("sound write to 0x%x, 0x%x\n", addr, byte);
                 break;
 
               case IO_BGP:
@@ -556,6 +685,7 @@ void writeByte(u8 byte, u16 addr) {
               case IO_SERIAL_SC:
               case IO_WINY:
               case IO_WINX:
+              case IO_LYC:
                 break;
 
               case IO_DMA:
@@ -573,16 +703,7 @@ void writeByte(u8 byte, u16 addr) {
                 break;
 
 
-
-
-
-
-
-
-
               case IO_LY:
-              case IO_LYC:
-
 
                 printf("unhandled I/O write @ 0x%x\n", addr);
 #ifndef DANGER_MODE

@@ -50,4 +50,5 @@ void updateKeyboard(KeyState* keys) {
   keys->r = keyStats[SDL_SCANCODE_RIGHT];
   keys->start = keyStats[SDL_SCANCODE_P];
   keys->select = keyStats[SDL_SCANCODE_L];
+  keys->turbo = keyStats[SDL_SCANCODE_SPACE];
 }

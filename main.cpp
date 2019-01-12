@@ -41,7 +41,6 @@ int main(int argc, char** argv) {
   lastBoard = keyboard;
   for(;;) {
 
-
     SDL_Event e;
     SDL_PollEvent(&e);
     updateKeyboard(&keyboard);
@@ -56,15 +55,17 @@ int main(int argc, char** argv) {
       exit(0);
     }
 
-
-    u32 startCycles = globalState.cycleCount;
-    cpuStep();
-    newCycles = globalState.cycleCount - startCycles;
-    if(!newCycles) {
-      printf("got 0 cycles!\n");
-      //printCpuState();
-      //assert(false);
+    for(int i =  0; i < 100; i++) {
+      u32 startCycles = globalState.cycleCount;
+      cpuStep();
+      newCycles = globalState.cycleCount - startCycles;
+      if(!newCycles) {
+        printf("got 0 cycles!\n");
+        //printCpuState();
+        //assert(false);
+      }
+      stepVideo(newCycles);
     }
-    stepVideo(newCycles);
+
   }
 }

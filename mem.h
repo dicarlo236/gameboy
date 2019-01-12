@@ -79,6 +79,8 @@
 #define IO_WINY      0x4a // no
 #define IO_WINX      0x4b // no
 
+#define IO_GBCSPEED  0x4d
+
 #define IO_EXIT_BIOS 0x50
 
 
@@ -158,12 +160,16 @@ struct CartInfo {
 
 struct MemState {
   bool inBios;
-  bool mbc1Mode;
+  u8 mbcType;
+  u8 nRomBanks;
+  u8 nRamBanks;
   u8* rom0;
   u8* mappedRom;
   u8* vram;
   u8* mappedRam;
+  u8* disabledMappedRam;
   u8* internalRam;
+  u8* internalRamAllocation;
   u8* ioRegs;
   u8* upperRam;
   u8* spriteAttribute;

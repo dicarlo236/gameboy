@@ -2877,6 +2877,7 @@ void cpuStep() {
     if(interrupts & 0x01) {
       printf("INTERRUPT1\n");
       printf("ie: 0x%x\n", globalMemState.upperRam[0x7f]);
+      printf("tac 0x%x tma 0x%x\n", globalMemState.ioRegs[IO_TAC], globalMemState.ioRegs[IO_TMA]);
       globalMemState.ioRegs[IO_IF] &= ~1;
       interrupt(VBLANK_INTERRUPT);
       globalState.halt = false;
