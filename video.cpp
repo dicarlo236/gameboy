@@ -95,6 +95,61 @@ u16 computeTileAddr(u8 tileIdx, bool tileData) {
   }
 }
 
+u8 readTilePtr(u8* tileAddr, u8 x, u8 y, u8 palette) {
+  assert(x <= 8);
+  assert(y <= 8);
+  x = (7 - x);
+  u8* loAddr = tileAddr + (y*(u16)2);
+  u8* hiAddr = loAddr + (u16)1;
+  u8 lo = *(loAddr);
+  u8 hi = *(hiAddr);
+  u8 loV = (lo >> x) & (u8)1;
+  u8 hiV = (hi >> x) & (u8)1;
+  //u8 result = loV * 120 + hiV * 60;
+  u8 colorIdx = loV + 2 * hiV;
+  u8 colorID = (palette >> (2 * colorIdx)) & 3;
+  return colors[colorID];
+}
+
+u8 readSpriteTileAddr(u8* tileAddr, u8 x, u8 y, u8 palette) {
+  //tileAddr = 0x8180;
+  assert(x <= 8);
+  assert(y <= 8);
+  x = (7 - x);
+  u8* loAddr = tileAddr + (y*(u16)2);
+  u8* hiAddr = loAddr + (u16)1;
+  u8 lo = *(loAddr);
+  u8 hi = *(hiAddr);
+  u8 loV = (lo >> x) & (u8)1;
+  u8 hiV = (hi >> x) & (u8)1;
+  u8 colorIdx = loV + 2 * hiV;
+  if(colorIdx == 0) {
+    return TRANSPARENT_SPRITE;
+  }
+  u8 colorID = (palette >> (2 * colorIdx)) & 3;
+  return colors[colorID];
+}
+
+u8* computeTileAddrPtr(u8 tileIdx, bool tileData) {
+  if(tileData) {
+    return globalMemState.vram + 16 * tileIdx;
+  } else {
+    if(tileIdx <= 127) {
+      return globalMemState.vram + 0x1000 + 16 * tileIdx;
+    } else {
+      return globalMemState.vram + 16 * (tileIdx);
+    }
+  }
+}
+
+static constexpr u32 H_RES = 160;
+static constexpr u32 Y0 = 0;
+static constexpr u32 X0 = 0;
+
+inline u32 xy2px(u8 x, u8 y) {
+  return H_RES*(y+Y0) + x + X0;
+}
+
 // main function to render a line of the display.
 // this implementation is missing a number of things, including (but not limited to)
 //  -- proper position of the WINDOW
@@ -124,15 +179,16 @@ void renderLine() {
     u8  tileMapColIdx  = globalMemState.ioRegs[IO_SCROLLX] >> 3;   // column index of the tilemap
     u8  yPixOffset     = ((u8)globalVideoState.line + globalMemState.ioRegs[IO_SCROLLY]) & (u8)7; // y-pixel of tile
     u8  xPixOffset     = globalMemState.ioRegs[IO_SCROLLX] & (u8)7;                               // x-pixel of tile
-    u8* linePtr        = globalVideoState.frameBuffer + 160 * globalVideoState.line;              // frame buffer pointer
+    //u8* linePtr        = globalVideoState.frameBuffer + 160 * globalVideoState.line;              // frame buffer pointer
     u8 tileIdx        = readByte(tileMapRowAddr + tileMapColIdx);                                 // tile index
 
     // loop over pixels in the line
     for(u8 px = 0; px < 160; px++) {
-      *linePtr = readTile(computeTileAddr(tileIdx, tileData), xPixOffset, yPixOffset, pal); // set the frame buffer
+      globalVideoState.frameBuffer[xy2px(px,globalVideoState.line)] =
+              readTilePtr(computeTileAddrPtr(tileIdx, tileData), xPixOffset, yPixOffset, pal);
 
       xPixOffset++; // increment tile pixel
-      linePtr++;    // increment frame buffer pixel
+      //linePtr++;    // increment frame buffer pixel
       if(xPixOffset == 8) { // if we have overflowed the tile
         xPixOffset = 0;     // go to the beginning
         tileMapColIdx = (tileMapColIdx + 1) & 31; // of the next tile (allow wraparound)
@@ -153,15 +209,17 @@ void renderLine() {
       u8 tileMapColIdx = 0; // column index of the tilemap
       u8 yPixOffset = ((u8)globalVideoState.line) & (u8)7; // y-pixel of tile
       u8 xPixOffset = 0; // x-pixel of tile
-      u8* linePtr        = globalVideoState.frameBuffer + 160 * globalVideoState.line;  // frame buffer pointer
+      //u8* linePtr        = globalVideoState.frameBuffer + 160 * globalVideoState.line;  // frame buffer pointer
       u8 tileIdx        = readByte(tileMapRowAddr + tileMapColIdx); // tile index
 
       // loop over pixels in the line
       for(u8 px = 0; px < 160; px++) {
-        *linePtr = readTile(computeTileAddr(tileIdx, tileData), xPixOffset, yPixOffset, pal); // set the frame buffer
+        globalVideoState.frameBuffer[xy2px(px,globalVideoState.line)] =
+                readTilePtr(computeTileAddrPtr(tileIdx, tileData), xPixOffset, yPixOffset, pal);
+        //*linePtr = readTile(computeTileAddr(tileIdx, tileData), xPixOffset, yPixOffset, pal); // set the frame buffer
 
         xPixOffset++; // increment tile pixel
-        linePtr++;    // increment frame buffer pixel
+        //linePtr++;    // increment frame buffer pixel
         if(xPixOffset == 8) { // if we have overflowed the tile
           xPixOffset = 0;     // go to the beginning
           tileMapColIdx = (tileMapColIdx + 1) & 31;  // of the next tile (allow wraparound, but it shouldn't happen?)
@@ -213,25 +271,26 @@ void renderLine() {
           u8 xPos = spriteX - 8 + tileX; // position on the screen
           if(xPos >= 160) continue; // reject if we go off the end, don't wrap around
 
+          u32 fbIdx = xy2px(xPos, globalVideoState.line);
+
           // current color at the screen
-          u8 old = globalVideoState.frameBuffer[160 * globalVideoState.line + xPos];
+          u8 old = globalVideoState.frameBuffer[fbIdx];
 
           // get the pixel from the sprite pattern data
           u8 tileLookupX = tileX;
           if(xFlip) {
             tileLookupX = 7 - tileX;
           }
-          u8 tileValue = readSpriteTile(0x8000 + patternIdx * 16, tileLookupX, tileY, pal);
-
+          u8 tileValue = readSpriteTileAddr(globalMemState.vram + patternIdx * 16, tileLookupX, tileY, pal);
           // don't draw transparent
           if(tileValue == TRANSPARENT_SPRITE) continue; // (transparent sprites)
 
           // not sure this is 100% right...
           if(!pri) {
-            globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+            globalVideoState.frameBuffer[fbIdx] = tileValue;
           } else {
             if(old == BRIGHTEST_COLOR) {
-              globalVideoState.frameBuffer[160 * globalVideoState.line + xPos] = tileValue;
+              globalVideoState.frameBuffer[fbIdx] = tileValue;
             }
           }
         }

@@ -2824,7 +2824,7 @@ u32 cpuStep() {
   // this behavior isn't well documented, but was required to pass cpu_instr.gb
   // (though none of the games seem to need it...)
   if(globalState.halt) {
-    globalState.cycleCount += 4; // just to keep ticking the timer...
+    globalState.cycleCount += 400; // just to keep ticking the timer...
     u8 interrupts = globalMemState.upperRam[0x7f] & globalMemState.ioRegs[IO_IF];
     if(interrupts & 0x01) {
       globalState.halt = false;
